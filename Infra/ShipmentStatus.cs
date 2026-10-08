@@ -12,7 +12,7 @@ namespace FreightDesk.Infra
 
     public static class ShipmentStatusExtensions
     {
-        public static ShipmentStatus GetStatus(this ContainerTR shipment)
+        public static ShipmentStatus GetStatus(this Shipment shipment)
         {
             if (shipment.ReleaseDate.HasValue) return ShipmentStatus.Released;
             if (shipment.PaymentReceivedDate.HasValue) return ShipmentStatus.Paid;

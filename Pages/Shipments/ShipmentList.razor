@@ -50,7 +50,7 @@
             {
                 <tr>
                     <td>@s.InvoiceNo</td>
-                    <td>@s.Shipping?.Name</td>
+                    <td>@s.Client?.Name</td>
                     <td>@s.ContainerNumber</td>
                     <td>@s.CargoDescription</td>
                     <td>@s.CargoQuantity</td>
@@ -99,7 +99,7 @@
 </div>
 
 @code {
-    private List<ContainerTR> containers = new();
+    private List<Shipment> containers = new();
     private string searchTerm = string.Empty;
     private string statusFilter = string.Empty;
     private int containerIdToDelete;
@@ -120,26 +120,26 @@
 
     private bool IsDeleteConfirmed => deleteConfirmationText.Equals("delete", StringComparison.OrdinalIgnoreCase);
 
-    private IEnumerable<ContainerTR> Filtered =>
+    private IEnumerable<Shipment> Filtered =>
         containers.Where(c => MatchesSearch(c)
                               && (statusFilter.Length == 0 || c.GetStatus().ToString() == statusFilter));
 
     protected override void OnInitialized()
     {
         windowDays = Math.Max(1, Configuration.GetValue("ArrivalNotifications:DaysBefore", 10));
-        LoadContainers();
+        LoadShipments();
     }
 
-    private void LoadContainers()
+    private void LoadShipments()
     {
-        containers = DbContext.Containers
-            .Include(c => c.Shipping)
+        containers = DbContext.Shipments
+            .Include(c => c.Client)
             .Where(c => c.Deleted != 1)
             .OrderByDescending(c => c.Id)
             .ToList();
     }
 
-    private bool MatchesSearch(ContainerTR c)
+    private bool MatchesSearch(Shipment c)
     {
         if (searchTerm.Length == 0) return true;
 
@@ -148,11 +148,11 @@
         return Has(c.BookingNumber)
                || Has(c.ContainerNumber)
                || Has(c.JobReferenceNumber)
-               || Has(c.Shipping?.Name)
+               || Has(c.Client?.Name)
                || Has(c.InvoiceNo?.ToString());
     }
 
-    private bool IsArrivingSoon(ContainerTR c) =>
+    private bool IsArrivingSoon(Shipment c) =>
         c.ReleaseDate == null
         && c.Arrival.HasValue
         && c.Arrival.Value.Date >= DateTime.Today
@@ -177,12 +177,12 @@
     {
         if (!IsDeleteConfirmed) return;
 
-        var container = DbContext.Containers.FirstOrDefault(c => c.Id == containerIdToDelete);
+        var container = DbContext.Shipments.FirstOrDefault(c => c.Id == containerIdToDelete);
         if (container != null)
         {
             container.Deleted = 1;
             DbContext.SaveChanges();
-            LoadContainers();
+            LoadShipments();
             await JSRuntime.InvokeVoidAsync("showToast", "Shipment deleted.", "success");
         }
         else

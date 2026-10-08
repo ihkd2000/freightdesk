@@ -13,7 +13,7 @@ namespace FreightDesk.Infra
     /// <summary>Decides which shipments need a person to act. Pure logic so it is easy to test.</summary>
     public static class AttentionRules
     {
-        public static IReadOnlyList<AttentionReason> Evaluate(ContainerTR s, DateTime today, int windowDays)
+        public static IReadOnlyList<AttentionReason> Evaluate(Shipment s, DateTime today, int windowDays)
         {
             var reasons = new List<AttentionReason>();
             if (s.Deleted == 1 || s.ReleaseDate.HasValue)
@@ -39,7 +39,7 @@ namespace FreightDesk.Infra
                 reasons.Add(AttentionReason.ReadyToRelease);
             }
 
-            if (string.IsNullOrWhiteSpace(s.Shipping?.Email))
+            if (string.IsNullOrWhiteSpace(s.Client?.Email))
             {
                 reasons.Add(AttentionReason.MissingClientEmail);
             }

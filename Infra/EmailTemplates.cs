@@ -9,11 +9,11 @@ namespace FreightDesk.Infra
     /// <summary>Builds customer emails. All dynamic values are HTML-encoded; branding comes from configuration.</summary>
     public static class EmailTemplates
     {
-        public static EmailContent ArrivalNotice(BrandingOptions brand, ContainerTR c, int daysBefore, DateTime now)
+        public static EmailContent ArrivalNotice(BrandingOptions brand, Shipment c, int daysBefore, DateTime now)
         {
             var arrival = c.Arrival?.ToString("yyyy-MM-dd") ?? "N/A";
             var invoice = c.InvoiceNo?.ToString() ?? "N/A";
-            var port = c.Destination?.destination_name ?? "N/A";
+            var port = c.Port?.Name ?? "N/A";
 
             var body = new StringBuilder();
             body.Append("<p>Hello,</p>");
@@ -45,7 +45,7 @@ namespace FreightDesk.Infra
                 Wrap(brand, "Container arrival notice", body.ToString(), now.Year));
         }
 
-        public static EmailContent PaymentReminder(BrandingOptions brand, ContainerTR c, int daysLeft,
+        public static EmailContent PaymentReminder(BrandingOptions brand, Shipment c, int daysLeft,
             string? bankAccount, DateTime now)
         {
             var arrival = c.Arrival?.ToString("yyyy-MM-dd") ?? "N/A";
@@ -86,7 +86,7 @@ namespace FreightDesk.Infra
                 Wrap(brand, "Payment reminder", body.ToString(), now.Year));
         }
 
-        public static EmailContent ShipmentRegistered(BrandingOptions brand, string clientName, ContainerTR c,
+        public static EmailContent ShipmentRegistered(BrandingOptions brand, string clientName, Shipment c,
             string? bankAccount, DateTime now)
         {
             var details = new List<(string, string)>

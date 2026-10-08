@@ -64,7 +64,7 @@
                     {
                         <tr>
                             <td>@item.Shipment.ContainerNumber</td>
-                            <td>@item.Shipment.Shipping?.Name</td>
+                            <td>@item.Shipment.Client?.Name</td>
                             <td>@item.Shipment.Arrival?.ToString("dd MMM yyyy")</td>
                             <td>
                                 @foreach (var reason in item.Reasons)
@@ -99,7 +99,7 @@
                         <th>Arrival</th>
                         <th>Container</th>
                         <th>Client</th>
-                        <th>Destination</th>
+                        <th>Port</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
@@ -110,8 +110,8 @@
                         <tr>
                             <td>@s.Arrival?.ToString("dd MMM yyyy")</td>
                             <td>@s.ContainerNumber</td>
-                            <td>@s.Shipping?.Name</td>
-                            <td>@s.Destination?.destination_name</td>
+                            <td>@s.Client?.Name</td>
+                            <td>@s.Port?.Name</td>
                             <td><StatusBadge Status="s.GetStatus()" /></td>
                             <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/shipments/@s.Id">View</a></td>
                         </tr>
@@ -123,7 +123,7 @@
 </div>
 
 @code {
-    private record AttentionItem(ContainerTR Shipment, IReadOnlyList<AttentionReason> Reasons);
+    private record AttentionItem(Shipment Shipment, IReadOnlyList<AttentionReason> Reasons);
 
     private int total;
     private int arrivingSoon;
@@ -132,17 +132,17 @@
     private int failedEmails;
     private int windowDays = 10;
     private List<AttentionItem> attention = new();
-    private List<ContainerTR> upcoming = new();
+    private List<Shipment> upcoming = new();
 
     protected override async Task OnInitializedAsync()
     {
         windowDays = Math.Max(1, Configuration.GetValue("ArrivalNotifications:DaysBefore", 10));
         var today = DateTime.Today;
 
-        var all = await DbContext.Containers
+        var all = await DbContext.Shipments
             .AsNoTracking()
-            .Include(c => c.Shipping)
-            .Include(c => c.Destination)
+            .Include(c => c.Client)
+            .Include(c => c.Port)
             .Where(c => c.Deleted != 1)
             .ToListAsync();
 

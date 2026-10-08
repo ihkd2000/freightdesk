@@ -76,8 +76,8 @@ namespace FreightDesk.Infra
             var now = DateTime.Now;
             var limit = now.Date.AddDays(_offsets[0] + 1);
 
-            var shipments = await dbContext.Containers
-                .Include(c => c.Shipping)
+            var shipments = await dbContext.Shipments
+                .Include(c => c.Client)
                 .Where(c => c.Deleted != 1
                             && c.PaymentReceivedDate == null
                             && c.ReleaseDate == null
@@ -95,7 +95,7 @@ namespace FreightDesk.Infra
                     continue;
                 }
 
-                var recipient = shipment.Shipping?.Email;
+                var recipient = shipment.Client?.Email;
                 if (string.IsNullOrWhiteSpace(recipient))
                 {
                     _logger.LogWarning("Shipment {ContainerNumber} is unpaid but its client has no email.", shipment.ContainerNumber);

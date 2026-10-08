@@ -30,7 +30,7 @@ public sealed class PaymentReminderTests : IDisposable
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
-        db.Destinations.Add(new Destination { Id = 1, destination_name = "New York" });
+        db.Ports.Add(new Port { Id = 1, Name = "New York" });
         db.SaveChanges();
     }
 
@@ -55,25 +55,25 @@ public sealed class PaymentReminderTests : IDisposable
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var client = new Shipping { Name = "Client " + number, Email = clientEmail };
-        db.Shippings.Add(client);
+        var client = new Client { Name = "Client " + number, Email = clientEmail };
+        db.Clients.Add(client);
         db.SaveChanges();
 
-        var shipment = new ContainerTR
+        var shipment = new Shipment
         {
             Owner = "owner",
             JobReferenceNumber = "JOB-" + number,
             BookingNumber = "BK-" + number,
             ContainerNumber = number,
-            DestinationId = 1,
-            ShippingId = client.Id,
+            PortId = 1,
+            ClientId = client.Id,
             Arrival = arrival,
             PaymentReceivedDate = paid,
             ReleaseDate = released,
             Deleted = deleted,
             Price = 1200m
         };
-        db.Containers.Add(shipment);
+        db.Shipments.Add(shipment);
         db.SaveChanges();
         return shipment.Id;
     }
@@ -82,14 +82,14 @@ public sealed class PaymentReminderTests : IDisposable
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Containers.Single(c => c.Id == id).Arrival = arrival;
+        db.Shipments.Single(c => c.Id == id).Arrival = arrival;
         db.SaveChanges();
     }
 
     private int RemindersSent(int id)
     {
         using var scope = _services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<AppDbContext>().Containers.Single(c => c.Id == id).PaymentRemindersSent;
+        return scope.ServiceProvider.GetRequiredService<AppDbContext>().Shipments.Single(c => c.Id == id).PaymentRemindersSent;
     }
 
     [Theory]
@@ -280,13 +280,13 @@ public class AttentionRuleTests
 {
     private static readonly DateTime Today = new(2026, 10, 7);
 
-    private static ContainerTR Shipment(DateTime? arrival, DateTime? paid = null, DateTime? released = null,
+    private static Shipment Shipment(DateTime? arrival, DateTime? paid = null, DateTime? released = null,
         string? email = "client@example.com") => new()
     {
         Arrival = arrival,
         PaymentReceivedDate = paid,
         ReleaseDate = released,
-        Shipping = new Shipping { Name = "C", Email = email }
+        Client = new Client { Name = "C", Email = email }
     };
 
     [Fact]

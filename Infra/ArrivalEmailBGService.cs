@@ -65,9 +65,9 @@ namespace FreightDesk.Infra
             var limit = now.AddDays(_daysBefore);
 
             // Only shipments that are still upcoming, inside the window, not deleted and not yet emailed.
-            var shipments = await dbContext.Containers
-                .Include(c => c.Destination)
-                .Include(c => c.Shipping)
+            var shipments = await dbContext.Shipments
+                .Include(c => c.Port)
+                .Include(c => c.Client)
                 .Where(c => c.Deleted != 1
                             && (c.Emailed ?? 0) == 0
                             && c.Arrival != null
@@ -77,7 +77,7 @@ namespace FreightDesk.Infra
 
             foreach (var shipment in shipments)
             {
-                var recipient = shipment.Shipping?.Email;
+                var recipient = shipment.Client?.Email;
                 if (string.IsNullOrWhiteSpace(recipient))
                 {
                     _logger.LogWarning("Shipment {ContainerNumber} has no client email; skipping.", shipment.ContainerNumber);

@@ -9,10 +9,10 @@ namespace FreightDesk.Data
     public class AppDbContext:IdentityDbContext
 
     {
-        public DbSet<ContainerTR>  Containers { get; set; }
-        public DbSet<Shipping>  Shippings { get; set; }
-        public DbSet<SteamShipLine> SteamShipLines { get; set; }
-        public DbSet<Destination> Destinations { get; set; }
+        public DbSet<Shipment>  Shipments { get; set; }
+        public DbSet<Client>  Clients { get; set; }
+        public DbSet<Carrier> Carriers { get; set; }
+        public DbSet<Port> Ports { get; set; }
         public DbSet<EmailLog> EmailLogs { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options):base(options)
@@ -29,20 +29,20 @@ namespace FreightDesk.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<ContainerTR>()
-                .HasOne(c => c.SteamShipLine)
+            modelBuilder.Entity<Shipment>()
+                .HasOne(c => c.Carrier)
                 .WithMany()
-                .HasForeignKey(c => c.SteamShipLineId);
+                .HasForeignKey(c => c.CarrierId);
 
-            modelBuilder.Entity<ContainerTR>()
-            .HasOne(c => c.Destination)
+            modelBuilder.Entity<Shipment>()
+            .HasOne(c => c.Port)
             .WithMany()
-            .HasForeignKey(c => c.DestinationId);
+            .HasForeignKey(c => c.PortId);
 
-            modelBuilder.Entity<ContainerTR>()
-                .HasOne(c => c.Shipping)
+            modelBuilder.Entity<Shipment>()
+                .HasOne(c => c.Client)
                 .WithMany()
-                .HasForeignKey(c => c.ShippingId);
+                .HasForeignKey(c => c.ClientId);
 
 
 

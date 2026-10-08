@@ -17,7 +17,7 @@ namespace FreightDesk.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
 
-            modelBuilder.Entity("FreightDesk.Models.ContainerTR", b =>
+            modelBuilder.Entity("FreightDesk.Models.Shipment", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -46,7 +46,8 @@ namespace FreightDesk.Migrations
                     b.Property<int>("Deleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("DestinationId")
+                    b.Property<int>("PortId")
+                        .HasColumnName("DestinationId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("Emailed")
@@ -69,7 +70,8 @@ namespace FreightDesk.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("PaidToSSLDate")
+                    b.Property<DateTime?>("PaidToCarrierDate")
+                        .HasColumnName("PaidToSSLDate")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("PaymentReceivedDate")
@@ -90,30 +92,33 @@ namespace FreightDesk.Migrations
                     b.Property<string>("Shipper")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ShippingId")
+                    b.Property<int>("ClientId")
+                        .HasColumnName("ShippingId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("SteamShipLineId")
+                    b.Property<int>("CarrierId")
+                        .HasColumnName("SteamShipLineId")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DestinationId");
+                    b.HasIndex("PortId");
 
-                    b.HasIndex("ShippingId");
+                    b.HasIndex("ClientId");
 
-                    b.HasIndex("SteamShipLineId");
+                    b.HasIndex("CarrierId");
 
                     b.ToTable("Containers");
                 });
 
-            modelBuilder.Entity("FreightDesk.Models.Destination", b =>
+            modelBuilder.Entity("FreightDesk.Models.Port", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("destination_name")
+                    b.Property<string>("Name")
+                        .HasColumnName("destination_name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
@@ -170,7 +175,7 @@ namespace FreightDesk.Migrations
                     b.ToTable("EmailLogs");
                 });
 
-            modelBuilder.Entity("FreightDesk.Models.Shipping", b =>
+            modelBuilder.Entity("FreightDesk.Models.Client", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -194,7 +199,7 @@ namespace FreightDesk.Migrations
                     b.ToTable("Shippings");
                 });
 
-            modelBuilder.Entity("FreightDesk.Models.SteamShipLine", b =>
+            modelBuilder.Entity("FreightDesk.Models.Carrier", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -406,31 +411,31 @@ namespace FreightDesk.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("FreightDesk.Models.ContainerTR", b =>
+            modelBuilder.Entity("FreightDesk.Models.Shipment", b =>
                 {
-                    b.HasOne("FreightDesk.Models.Destination", "Destination")
+                    b.HasOne("FreightDesk.Models.Port", "Port")
                         .WithMany()
-                        .HasForeignKey("DestinationId")
+                        .HasForeignKey("PortId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FreightDesk.Models.Shipping", "Shipping")
+                    b.HasOne("FreightDesk.Models.Client", "Client")
                         .WithMany()
-                        .HasForeignKey("ShippingId")
+                        .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FreightDesk.Models.SteamShipLine", "SteamShipLine")
+                    b.HasOne("FreightDesk.Models.Carrier", "Carrier")
                         .WithMany()
-                        .HasForeignKey("SteamShipLineId")
+                        .HasForeignKey("CarrierId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Destination");
+                    b.Navigation("Port");
 
-                    b.Navigation("Shipping");
+                    b.Navigation("Client");
 
-                    b.Navigation("SteamShipLine");
+                    b.Navigation("Carrier");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

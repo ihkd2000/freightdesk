@@ -86,8 +86,8 @@ public sealed class SeedDataTests : IDisposable
 
         using var scope = provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(3, db.Destinations.Count());
-        Assert.Equal(3, db.SteamShipLines.Count());
-        Assert.Equal(2, db.Shippings.Count());
+        Assert.Equal(3, db.Ports.Count());
+        Assert.Equal(3, db.Carriers.Count());
+        Assert.Equal(2, db.Clients.Count());
     }
 }

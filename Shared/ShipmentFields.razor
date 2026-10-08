@@ -29,36 +29,36 @@
     <div class="row g-3">
         <div class="col-md-4">
             <label class="form-label" for="client">Client</label>
-            <InputSelect id="client" class="form-select" @bind-Value="Model.ShippingId">
+            <InputSelect id="client" class="form-select" @bind-Value="Model.ClientId">
                 <option value="0">Select a client</option>
                 @foreach (var client in Clients)
                 {
                     <option value="@client.Id">@client.Name</option>
                 }
             </InputSelect>
-            <ValidationMessage For="@(() => Model.ShippingId)" />
+            <ValidationMessage For="@(() => Model.ClientId)" />
         </div>
         <div class="col-md-4">
             <label class="form-label" for="carrier">Carrier</label>
-            <InputSelect id="carrier" class="form-select" @bind-Value="Model.SteamShipLineId">
+            <InputSelect id="carrier" class="form-select" @bind-Value="Model.CarrierId">
                 <option value="">Select a carrier</option>
                 @foreach (var carrier in Carriers)
                 {
                     <option value="@carrier.Id">@carrier.Name</option>
                 }
             </InputSelect>
-            <ValidationMessage For="@(() => Model.SteamShipLineId)" />
+            <ValidationMessage For="@(() => Model.CarrierId)" />
         </div>
         <div class="col-md-4">
             <label class="form-label" for="port">Destination port</label>
-            <InputSelect id="port" class="form-select" @bind-Value="Model.DestinationId">
+            <InputSelect id="port" class="form-select" @bind-Value="Model.PortId">
                 <option value="0">Select a port</option>
                 @foreach (var port in Ports)
                 {
-                    <option value="@port.Id">@port.destination_name</option>
+                    <option value="@port.Id">@port.Name</option>
                 }
             </InputSelect>
-            <ValidationMessage For="@(() => Model.DestinationId)" />
+            <ValidationMessage For="@(() => Model.PortId)" />
         </div>
     </div>
 </div>
@@ -112,7 +112,7 @@
         </div>
         <div class="col-md-3">
             <label class="form-label" for="paidCarrier">Paid to carrier</label>
-            <InputDate id="paidCarrier" class="form-control" @bind-Value="Model.PaidToSSLDate" />
+            <InputDate id="paidCarrier" class="form-control" @bind-Value="Model.PaidToCarrierDate" />
         </div>
         <div class="col-md-3">
             <label class="form-label" for="released">Released</label>
@@ -126,8 +126,8 @@
 </div>
 
 @code {
-    [Parameter, EditorRequired] public ContainerTR Model { get; set; } = default!;
-    [Parameter] public IReadOnlyList<Shipping> Clients { get; set; } = Array.Empty<Shipping>();
-    [Parameter] public IReadOnlyList<SteamShipLine> Carriers { get; set; } = Array.Empty<SteamShipLine>();
-    [Parameter] public IReadOnlyList<Destination> Ports { get; set; } = Array.Empty<Destination>();
+    [Parameter, EditorRequired] public Shipment Model { get; set; } = default!;
+    [Parameter] public IReadOnlyList<Client> Clients { get; set; } = Array.Empty<Client>();
+    [Parameter] public IReadOnlyList<Carrier> Carriers { get; set; } = Array.Empty<Carrier>();
+    [Parameter] public IReadOnlyList<Port> Ports { get; set; } = Array.Empty<Port>();
 }

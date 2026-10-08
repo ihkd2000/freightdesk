@@ -34,10 +34,10 @@ else
     <div class="fd-card">
         <div class="fd-card-title">Parties &amp; route</div>
         <div class="detail-grid">
-            @Item("Client", shipment.Shipping?.Name)
-            @Item("Client email", shipment.Shipping?.Email)
-            @Item("Carrier", shipment.SteamShipLine?.Name)
-            @Item("Destination port", shipment.Destination?.destination_name)
+            @Item("Client", shipment.Client?.Name)
+            @Item("Client email", shipment.Client?.Email)
+            @Item("Carrier", shipment.Carrier?.Name)
+            @Item("Destination port", shipment.Port?.Name)
         </div>
     </div>
 
@@ -64,7 +64,7 @@ else
         <div class="detail-grid">
             @Item("Price", shipment.Price?.ToString("C"))
             @Item("Payment received", Date(shipment.PaymentReceivedDate))
-            @Item("Paid to carrier", Date(shipment.PaidToSSLDate))
+            @Item("Paid to carrier", Date(shipment.PaidToCarrierDate))
             @Item("Released", Date(shipment.ReleaseDate))
         </div>
         @if (!string.IsNullOrWhiteSpace(shipment.Notes))
@@ -81,16 +81,16 @@ else
 @code {
     [Parameter] public int Id { get; set; }
 
-    private ContainerTR? shipment;
+    private Shipment? shipment;
     private bool loaded;
 
     protected override async Task OnInitializedAsync()
     {
-        shipment = await DbContext.Containers
+        shipment = await DbContext.Shipments
             .AsNoTracking()
-            .Include(c => c.Shipping)
-            .Include(c => c.Destination)
-            .Include(c => c.SteamShipLine)
+            .Include(c => c.Client)
+            .Include(c => c.Port)
+            .Include(c => c.Carrier)
             .FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
         loaded = true;
     }

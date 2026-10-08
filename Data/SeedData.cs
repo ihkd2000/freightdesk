@@ -57,27 +57,27 @@ namespace FreightDesk.Data
                                   "Set them to create the first admin account.");
             }
 
-            if (!context.Destinations.Any())
+            if (!context.Ports.Any())
             {
-                context.Destinations.AddRange(
-                    new Destination { destination_name = "New York" },
-                    new Destination { destination_name = "Washington" },
-                    new Destination { destination_name = "Los Angeles" });
+                context.Ports.AddRange(
+                    new Port { Name = "New York" },
+                    new Port { Name = "Washington" },
+                    new Port { Name = "Los Angeles" });
             }
 
-            if (!context.SteamShipLines.Any())
+            if (!context.Carriers.Any())
             {
-                context.SteamShipLines.AddRange(
-                    new SteamShipLine { Name = "Maersk" },
-                    new SteamShipLine { Name = "CMA CGM" },
-                    new SteamShipLine { Name = "Hapag-Lloyd" });
+                context.Carriers.AddRange(
+                    new Carrier { Name = "Maersk" },
+                    new Carrier { Name = "CMA CGM" },
+                    new Carrier { Name = "Hapag-Lloyd" });
             }
 
-            if (!context.Shippings.Any())
+            if (!context.Clients.Any())
             {
-                context.Shippings.AddRange(
-                    new Shipping { Name = "ABC Shipping", JobReference = "REF123", Email = "abc@example.com" },
-                    new Shipping { Name = "XYZ Shipping", JobReference = "REF456", Email = "xyz@example.com" });
+                context.Clients.AddRange(
+                    new Client { Name = "ABC Shipping", JobReference = "REF123", Email = "abc@example.com" },
+                    new Client { Name = "XYZ Shipping", JobReference = "REF456", Email = "xyz@example.com" });
             }
 
             await context.SaveChangesAsync();

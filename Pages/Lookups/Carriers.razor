@@ -1,7 +1,7 @@
 @page "/carriers"
 @inject AppDbContext DbContext
 
-<LookupCrud TItem="SteamShipLine" Subtitle="Shipping lines that carry your freight" Title="Carriers" ItemLabel="Carrier"
+<LookupCrud TItem="Carrier" Subtitle="Shipping lines that carry your freight" Title="Carriers" ItemLabel="Carrier"
             LoadAsync="LoadItems" DisplayName="@(s => s.Name)"
             CreateAsync="CreateItem" UpdateAsync="UpdateItem" DeleteAsync="DeleteItem">
     <Fields Context="s">
@@ -20,45 +20,45 @@
 </LookupCrud>
 
 @code {
-    private Task<List<SteamShipLine>> LoadItems() =>
-        DbContext.SteamShipLines.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+    private Task<List<Carrier>> LoadItems() =>
+        DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
 
-    private async Task<string?> CreateItem(SteamShipLine item)
+    private async Task<string?> CreateItem(Carrier item)
     {
         if (await IsDuplicate(item)) return "A carrier with this name already exists.";
 
-        DbContext.SteamShipLines.Add(item);
+        DbContext.Carriers.Add(item);
         await DbContext.SaveChangesAsync();
         DbContext.ChangeTracker.Clear();
         return null;
     }
 
-    private async Task<string?> UpdateItem(SteamShipLine item)
+    private async Task<string?> UpdateItem(Carrier item)
     {
         if (await IsDuplicate(item)) return "A carrier with this name already exists.";
 
-        DbContext.SteamShipLines.Update(item);
+        DbContext.Carriers.Update(item);
         await DbContext.SaveChangesAsync();
         DbContext.ChangeTracker.Clear();
         return null;
     }
 
-    private async Task<string?> DeleteItem(SteamShipLine item)
+    private async Task<string?> DeleteItem(Carrier item)
     {
-        if (await DbContext.Containers.AnyAsync(c => c.SteamShipLineId == item.Id))
+        if (await DbContext.Shipments.AnyAsync(c => c.CarrierId == item.Id))
         {
             return "This carrier cannot be deleted because containers still use it.";
         }
 
-        DbContext.SteamShipLines.Remove(item);
+        DbContext.Carriers.Remove(item);
         await DbContext.SaveChangesAsync();
         DbContext.ChangeTracker.Clear();
         return null;
     }
 
-    private Task<bool> IsDuplicate(SteamShipLine item)
+    private Task<bool> IsDuplicate(Carrier item)
     {
         var name = (item.Name ?? string.Empty).Trim().ToLower();
-        return DbContext.SteamShipLines.AnyAsync(s => s.Id != item.Id && s.Name.ToLower() == name);
+        return DbContext.Carriers.AnyAsync(s => s.Id != item.Id && s.Name.ToLower() == name);
     }
 }

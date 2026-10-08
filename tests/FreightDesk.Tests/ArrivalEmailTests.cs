@@ -48,7 +48,7 @@ public sealed class ArrivalEmailTests : IDisposable
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
-        db.Destinations.Add(new Destination { Id = 1, destination_name = "New York" });
+        db.Ports.Add(new Port { Id = 1, Name = "New York" });
         db.SaveChanges();
     }
 
@@ -71,8 +71,8 @@ public sealed class ArrivalEmailTests : IDisposable
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var shipper = new Shipping { Name = name, Email = email };
-        db.Shippings.Add(shipper);
+        var shipper = new Client { Name = name, Email = email };
+        db.Clients.Add(shipper);
         db.SaveChanges();
         return shipper.Id;
     }
@@ -81,19 +81,19 @@ public sealed class ArrivalEmailTests : IDisposable
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var container = new ContainerTR
+        var container = new Shipment
         {
             Owner = "owner",
             JobReferenceNumber = "JOB-" + number,
             BookingNumber = "BK-" + number,
             ContainerNumber = number,
-            DestinationId = 1,
-            ShippingId = shipperId,
+            PortId = 1,
+            ClientId = shipperId,
             Arrival = arrival,
             Deleted = deleted,
             Emailed = emailed
         };
-        db.Containers.Add(container);
+        db.Shipments.Add(container);
         db.SaveChanges();
         return container.Id;
     }
@@ -102,7 +102,7 @@ public sealed class ArrivalEmailTests : IDisposable
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        return db.Containers.Single(c => c.Id == containerId).Emailed;
+        return db.Shipments.Single(c => c.Id == containerId).Emailed;
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class ArrivalEmailTests : IDisposable
     }
 
     [Fact]
-    public async Task Containers_are_marked_emailed_and_not_sent_twice()
+    public async Task Shipments_are_marked_emailed_and_not_sent_twice()
     {
         var shipper = AddShipper("A", "a@example.com");
         var id = AddContainer("AAA1111111", DateTime.Now.AddDays(2), shipper);
@@ -184,7 +184,7 @@ public class EmailTemplateTests
     public void Arrival_notice_uses_configured_branding_and_encodes_values()
     {
         var brand = new BrandingOptions { CompanyName = "Acme <Freight>", AccountingEmail = "billing@acme.test" };
-        var shipment = new ContainerTR { ContainerNumber = "<b>X1</b>", BookingNumber = "BK1", Arrival = new DateTime(2026, 11, 2) };
+        var shipment = new Shipment { ContainerNumber = "<b>X1</b>", BookingNumber = "BK1", Arrival = new DateTime(2026, 11, 2) };
 
         var email = EmailTemplates.ArrivalNotice(brand, shipment, 10, new DateTime(2026, 10, 25));
 
@@ -201,7 +201,7 @@ public class EmailTemplateTests
     [InlineData(true, true, true, ShipmentStatus.Released)]
     public void Status_is_derived_from_dates(bool arrival, bool paid, bool released, ShipmentStatus expected)
     {
-        var s = new ContainerTR
+        var s = new Shipment
         {
             Arrival = arrival ? DateTime.Today : null,
             PaymentReceivedDate = paid ? DateTime.Today : null,

@@ -39,11 +39,11 @@ else
 @code {
     [Parameter] public int Id { get; set; }
 
-    private ContainerTR? model;
+    private Shipment? model;
     private DateTime? originalArrival;
-    private List<Shipping> clients = new();
-    private List<SteamShipLine> carriers = new();
-    private List<Destination> ports = new();
+    private List<Client> clients = new();
+    private List<Carrier> carriers = new();
+    private List<Port> ports = new();
     private bool loaded;
     private bool isSaving;
     private string? message;
@@ -51,11 +51,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        model = await DbContext.Containers.FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
+        model = await DbContext.Shipments.FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
         originalArrival = model?.Arrival;
-        clients = await DbContext.Shippings.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
-        carriers = await DbContext.SteamShipLines.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
-        ports = await DbContext.Destinations.AsNoTracking().OrderBy(d => d.destination_name).ToListAsync();
+        clients = await DbContext.Clients.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        carriers = await DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
         loaded = true;
     }
 

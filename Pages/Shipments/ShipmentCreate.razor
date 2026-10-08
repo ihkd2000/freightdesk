@@ -38,19 +38,19 @@
 </EditForm>
 
 @code {
-    private ContainerTR model = new();
-    private List<Shipping> clients = new();
-    private List<SteamShipLine> carriers = new();
-    private List<Destination> ports = new();
+    private Shipment model = new();
+    private List<Client> clients = new();
+    private List<Carrier> carriers = new();
+    private List<Port> ports = new();
     private bool isSaving;
     private string? message;
     private bool messageIsError;
 
     protected override async Task OnInitializedAsync()
     {
-        clients = await DbContext.Shippings.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
-        carriers = await DbContext.SteamShipLines.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
-        ports = await DbContext.Destinations.AsNoTracking().OrderBy(d => d.destination_name).ToListAsync();
+        clients = await DbContext.Clients.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        carriers = await DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
     }
 
     private async Task Save()
@@ -69,11 +69,11 @@
             }
 
             model.Owner = userId;
-            DbContext.Containers.Add(model);
+            DbContext.Shipments.Add(model);
             await DbContext.SaveChangesAsync();
 
             var saved = model;
-            model = new ContainerTR();
+            model = new Shipment();
 
             var notified = await NotifyClientAsync(saved);
             message = notified
@@ -93,11 +93,11 @@
         }
     }
 
-    private async Task<bool> NotifyClientAsync(ContainerTR saved)
+    private async Task<bool> NotifyClientAsync(Shipment saved)
     {
         try
         {
-            var client = await DbContext.Shippings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == saved.ShippingId);
+            var client = await DbContext.Clients.AsNoTracking().FirstOrDefaultAsync(s => s.Id == saved.ClientId);
             if (client == null || string.IsNullOrWhiteSpace(client.Email))
             {
                 return false;
