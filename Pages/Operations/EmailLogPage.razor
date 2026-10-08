@@ -1,0 +1,145 @@
+@page "/emails"
+@inject AppDbContext DbContext
+@inject EmailDispatcher Dispatcher
+
+<PageTitle>Email log</PageTitle>
+
+<PageHeader Title="Email log" Subtitle="Every email the system sent, and whether the mail provider accepted it" />
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+}
+
+<div class="fd-card">
+    <div class="row g-2">
+        <div class="col-md-8">
+            <input type="text" class="form-control" @bind="SearchTerm" @bind:event="oninput"
+                   placeholder="Search by address, subject or type" />
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" @bind="ResultFilter">
+                <option value="">All emails</option>
+                <option value="failed">Failed only</option>
+                <option value="sent">Sent only</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table class="table fd-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>To</th>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Result</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in Filtered)
+            {
+                <tr>
+                    <td class="text-nowrap">@log.SentAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                    <td>@log.ToAddress</td>
+                    <td>@log.Subject</td>
+                    <td>@log.Kind</td>
+                    <td>
+                        @if (log.Success)
+                        {
+                            <span class="status-badge status-paid">Sent</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-overdue" title="@log.Error">Failed</span>
+                        }
+                    </td>
+                    <td class="text-end text-nowrap">
+                        @if (log.ContainerId.HasValue)
+                        {
+                            <a class="btn btn-outline-primary btn-icon" title="Open shipment" href="/shipments/@log.ContainerId"><span class="oi oi-eye" aria-hidden="true"></span></a>
+                        }
+                        <button class="btn btn-outline-primary btn-icon" title="Send again" disabled="@busy" @onclick="() => Resend(log.Id)">
+                            <span class="oi oi-reload" aria-hidden="true"></span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+        <div class="empty-state">No emails match your filters.</div>
+    }
+</div>
+<p class="text-muted mt-2 mb-0">Showing the latest @MaxRows emails.</p>
+
+@code {
+    private const int MaxRows = 200;
+
+    [SupplyParameterFromQuery(Name = "filter")] public string? Filter { get; set; }
+
+    private List<EmailLog> logs = new();
+    private string searchTerm = string.Empty;
+    private string resultFilter = string.Empty;
+    private string? message;
+    private bool messageIsError;
+    private bool busy;
+
+    private string SearchTerm
+    {
+        get => searchTerm;
+        set => searchTerm = value ?? string.Empty;
+    }
+
+    private string ResultFilter
+    {
+        get => resultFilter;
+        set
+        {
+            resultFilter = value ?? string.Empty;
+            LoadLogs();
+        }
+    }
+
+    private IEnumerable<EmailLog> Filtered =>
+        logs.Where(l => searchTerm.Length == 0
+                        || l.ToAddress.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                        || l.Subject.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                        || l.Kind.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnInitialized()
+    {
+        resultFilter = string.Equals(Filter, "failed", StringComparison.OrdinalIgnoreCase) ? "failed" : string.Empty;
+        LoadLogs();
+    }
+
+    private void LoadLogs()
+    {
+        IQueryable<EmailLog> query = DbContext.EmailLogs.AsNoTracking();
+
+        if (resultFilter == "failed") query = query.Where(l => !l.Success);
+        else if (resultFilter == "sent") query = query.Where(l => l.Success);
+
+        logs = query.OrderByDescending(l => l.Id).Take(MaxRows).ToList();
+    }
+
+    private async Task Resend(int id)
+    {
+        busy = true;
+        try
+        {
+            var result = await Dispatcher.ResendAsync(id);
+            message = result.Success ? "Email sent again." : $"Could not send the email: {result.Error}";
+            messageIsError = !result.Success;
+            LoadLogs();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

@@ -1,0 +1,20 @@
+.brand-bar { height: 4rem; display: flex; align-items: center; justify-content: space-between; padding: 0 1rem 0 1.25rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+.brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: #fff; }
+.brand:hover { color: #fff; }
+.brand-mark { width: 2.25rem; height: 2.25rem; border-radius: 10px; background: linear-gradient(135deg, #14b8a6, #0f766e); display: flex; align-items: center; justify-content: center; }
+.brand-mark .oi { font-size: 1rem; top: 0; width: auto; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text strong { font-size: 1.05rem; }
+.brand-text small { font-size: .7rem; color: rgba(255,255,255,.6); }
+.nav-toggle { background: rgba(255,255,255,.1); border: 0; border-radius: 8px; color: #fff; padding: .4rem .6rem; }
+.nav-scroll { padding: .5rem .75rem 1.5rem; overflow-y: auto; }
+.nav-section { color: rgba(255,255,255,.45); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 1.1rem .75rem .35rem; }
+.oi { width: 1.75rem; font-size: .95rem; vertical-align: text-top; top: -1px; }
+.nav-scroll ::deep .nav-link { color: rgba(255,255,255,.78); border-radius: 8px; height: 2.6rem; display: flex; align-items: center; font-size: .9rem; font-weight: 500; padding: 0 .75rem; margin-bottom: 2px; }
+.nav-scroll ::deep .nav-link:hover { background-color: rgba(255,255,255,.08); color: #fff; }
+.nav-scroll ::deep .nav-link.active { background-color: rgba(20,184,166,.22); color: #fff; box-shadow: inset 3px 0 0 #14b8a6; }
+
+@media (min-width: 641px) {
+    .nav-toggle { display: none; }
+    .collapse { display: block; }
+}

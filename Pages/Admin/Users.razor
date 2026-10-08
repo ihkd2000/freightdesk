@@ -1,0 +1,108 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<IdentityUser> UserManager
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Users &amp; roles</PageTitle>
+
+<PageHeader Title="Users &amp; roles" Subtitle="Who can sign in and what they can do" />
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert alert-warning">@message</div>
+}
+
+@if (users == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="table-wrap"><table class="table fd-table">
+        <thead class="thead-dark">
+            <tr>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.Email</td>
+                    <td>@foreach (var role in userRoles[user.Id]) { <span class="status-badge status-released me-1">@role</span> }</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => EditUser(user.Id)">Edit</button>
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteUser(user)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table></div>
+}
+
+@code {
+    private List<IdentityUser>? users;
+    private Dictionary<string, IList<string>> userRoles = new();
+    private string? currentUserName;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserName = state.User.Identity?.Name;
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        users = UserManager.Users.ToList();
+        userRoles = new Dictionary<string, IList<string>>();
+        foreach (var user in users)
+        {
+            userRoles[user.Id] = await UserManager.GetRolesAsync(user);
+        }
+    }
+
+    private void EditUser(string userId)
+    {
+        NavigationManager.NavigateTo($"/admin/users/{userId}/roles");
+    }
+
+    private async Task DeleteUser(IdentityUser user)
+    {
+        message = null;
+
+        if (string.Equals(user.UserName, currentUserName, StringComparison.OrdinalIgnoreCase))
+        {
+            message = "You cannot delete your own account.";
+            return;
+        }
+
+        var admins = await UserManager.GetUsersInRoleAsync("Admin");
+        if (admins.Count <= 1 && admins.Any(a => a.Id == user.Id))
+        {
+            message = "You cannot delete the last administrator.";
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete user {user.UserName}? This cannot be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await UserManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            message = string.Join("; ", result.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await LoadUsersAsync();
+    }
+}

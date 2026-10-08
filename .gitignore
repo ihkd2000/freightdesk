@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# IDE / user files
+.vs/
+*.user
+*.suo
+*.usr
+
+# Local databases contain user hashes and business data - never commit them
+*.db
+*.db-shm
+*.db-wal
+
+# Logs and local secrets
+*.log
+.env
+appsettings.*.local.json

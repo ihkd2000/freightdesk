@@ -1,0 +1,119 @@
+@page "/shipments/new"
+@using System.Security.Claims
+@inject AppDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject EmailDispatcher Dispatcher
+@inject IConfiguration Configuration
+@inject IOptions<BrandingOptions> Branding
+@inject ILogger<ShipmentCreate> Logger
+
+<PageTitle>New shipment</PageTitle>
+
+<PageHeader Title="New shipment" Subtitle="Register a booking and notify the client">
+    <a class="btn btn-outline-primary" href="/shipments"><span class="oi oi-arrow-left" aria-hidden="true"></span> Back to shipments</a>
+</PageHeader>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")" role="alert">
+        @message
+        @if (!messageIsError)
+        {
+            <a class="ms-2" href="/shipments">View all shipments</a>
+        }
+    </div>
+}
+
+<EditForm Model="@model" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@isSaving">@(isSaving ? "Saving..." : "Save shipment")</button>
+        <a class="btn btn-outline-secondary" href="/shipments">Cancel</a>
+    </div>
+</EditForm>
+
+@code {
+    private ContainerTR model = new();
+    private List<Shipping> clients = new();
+    private List<SteamShipLine> carriers = new();
+    private List<Destination> ports = new();
+    private bool isSaving;
+    private string? message;
+    private bool messageIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clients = await DbContext.Shippings.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        carriers = await DbContext.SteamShipLines.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        ports = await DbContext.Destinations.AsNoTracking().OrderBy(d => d.destination_name).ToListAsync();
+    }
+
+    private async Task Save()
+    {
+        isSaving = true;
+        message = null;
+
+        try
+        {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                NavigationManager.NavigateTo("Identity/Account/Login", forceLoad: true);
+                return;
+            }
+
+            model.Owner = userId;
+            DbContext.Containers.Add(model);
+            await DbContext.SaveChangesAsync();
+
+            var saved = model;
+            model = new ContainerTR();
+
+            var notified = await NotifyClientAsync(saved);
+            message = notified
+                ? $"Shipment {saved.ContainerNumber} saved and the client was notified."
+                : $"Shipment {saved.ContainerNumber} saved. The client notification could not be sent.";
+            messageIsError = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not save shipment.");
+            message = $"Could not save the shipment: {ex.Message}";
+            messageIsError = true;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task<bool> NotifyClientAsync(ContainerTR saved)
+    {
+        try
+        {
+            var client = await DbContext.Shippings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == saved.ShippingId);
+            if (client == null || string.IsNullOrWhiteSpace(client.Email))
+            {
+                return false;
+            }
+
+            var email = EmailTemplates.ShipmentRegistered(
+                Branding.Value, client.Name, saved, Configuration["Billing:BankAccount"], DateTime.Now);
+
+            var result = await Dispatcher.SendAsync(EmailKinds.ShipmentRegistered, client.Email,
+                email.Subject, email.Text, email.Html, saved.Id);
+            return result.Success;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not send the registration email for {ContainerNumber}.", saved.ContainerNumber);
+            return false;
+        }
+    }
+}

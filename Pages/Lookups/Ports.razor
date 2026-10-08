@@ -1,0 +1,64 @@
+@page "/ports"
+@inject AppDbContext DbContext
+
+<LookupCrud TItem="Destination" Subtitle="Destination ports used on shipments" Title="Ports" ItemLabel="Port"
+            LoadAsync="LoadItems" DisplayName="@(d => d.destination_name)"
+            CreateAsync="CreateItem" UpdateAsync="UpdateItem" DeleteAsync="DeleteItem">
+    <Fields Context="d">
+        <div class="col-md-6">
+            <label class="form-label">Port name</label>
+            <InputText class="form-control" @bind-Value="d.destination_name" />
+            <ValidationMessage For="@(() => d.destination_name)" />
+        </div>
+    </Fields>
+    <Headers>
+        <th>Port</th>
+    </Headers>
+    <Cells Context="d">
+        <td>@d.destination_name</td>
+    </Cells>
+</LookupCrud>
+
+@code {
+    private Task<List<Destination>> LoadItems() =>
+        DbContext.Destinations.AsNoTracking().OrderBy(d => d.destination_name).ToListAsync();
+
+    private async Task<string?> CreateItem(Destination item)
+    {
+        if (await IsDuplicate(item)) return "A port with this name already exists.";
+
+        DbContext.Destinations.Add(item);
+        await DbContext.SaveChangesAsync();
+        DbContext.ChangeTracker.Clear();
+        return null;
+    }
+
+    private async Task<string?> UpdateItem(Destination item)
+    {
+        if (await IsDuplicate(item)) return "A port with this name already exists.";
+
+        DbContext.Destinations.Update(item);
+        await DbContext.SaveChangesAsync();
+        DbContext.ChangeTracker.Clear();
+        return null;
+    }
+
+    private async Task<string?> DeleteItem(Destination item)
+    {
+        if (await DbContext.Containers.AnyAsync(c => c.DestinationId == item.Id))
+        {
+            return "This port cannot be deleted because containers still use it.";
+        }
+
+        DbContext.Destinations.Remove(item);
+        await DbContext.SaveChangesAsync();
+        DbContext.ChangeTracker.Clear();
+        return null;
+    }
+
+    private Task<bool> IsDuplicate(Destination item)
+    {
+        var name = (item.destination_name ?? string.Empty).Trim().ToLower();
+        return DbContext.Destinations.AnyAsync(d => d.Id != item.Id && d.destination_name.ToLower() == name);
+    }
+}

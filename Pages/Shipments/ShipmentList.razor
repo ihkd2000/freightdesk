@@ -1,0 +1,195 @@
+@page "/shipments"
+@inject AppDbContext DbContext
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+
+<PageTitle>Shipments</PageTitle>
+
+<PageHeader Title="Shipments" Subtitle="Bookings, payments and releases in one place">
+    <button type="button" class="btn btn-primary" @onclick="AddShipment">
+        <span class="oi oi-plus" aria-hidden="true"></span> New shipment
+    </button>
+</PageHeader>
+
+<div class="fd-card">
+    <div class="row g-2">
+        <div class="col-md-8">
+            <input type="text" class="form-control" @bind="SearchTerm" @bind:event="oninput"
+                   placeholder="Search by booking, container, client, job reference or invoice" />
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" @bind="StatusFilter">
+                <option value="">All statuses</option>
+                @foreach (var status in Enum.GetValues<ShipmentStatus>())
+                {
+                    <option value="@status">@status.Label()</option>
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table class="table fd-table">
+        <thead>
+            <tr>
+                <th>Invoice</th>
+                <th>Client</th>
+                <th>Container</th>
+                <th>Cargo</th>
+                <th>Qty</th>
+                <th>Arrival</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Filtered)
+            {
+                <tr>
+                    <td>@s.InvoiceNo</td>
+                    <td>@s.Shipping?.Name</td>
+                    <td>@s.ContainerNumber</td>
+                    <td>@s.CargoDescription</td>
+                    <td>@s.CargoQuantity</td>
+                    <td>
+                        @FormatDate(s.Arrival)
+                        @if (IsArrivingSoon(s))
+                        {
+                            <span class="soon-pill">soon</span>
+                        }
+                    </td>
+                    <td>@FormatDate(s.PaymentReceivedDate)</td>
+                    <td><StatusBadge Status="s.GetStatus()" /></td>
+                    <td class="text-end text-nowrap">
+                        <button class="btn btn-outline-primary btn-icon" title="Details" @onclick="() => ShowDetails(s.Id)"><span class="oi oi-eye" aria-hidden="true"></span></button>
+                        <button class="btn btn-outline-primary btn-icon" title="Edit" @onclick="() => EditShipment(s.Id)"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                        <button class="btn btn-outline-danger btn-icon" title="Delete" @onclick="() => OpenDeleteModal(s.Id)"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Filtered.Any())
+    {
+        <div class="empty-state">No shipments match your filters.</div>
+    }
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete shipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>This removes the shipment from the list. Type <strong>delete</strong> to confirm.</p>
+                <input type="text" class="form-control" placeholder="delete"
+                       @oninput="(e => deleteConfirmationText = e.Value?.ToString() ?? string.Empty)" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete" disabled="@(!IsDeleteConfirmed)">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ContainerTR> containers = new();
+    private string searchTerm = string.Empty;
+    private string statusFilter = string.Empty;
+    private int containerIdToDelete;
+    private string deleteConfirmationText = string.Empty;
+    private int windowDays = 10;
+
+    private string SearchTerm
+    {
+        get => searchTerm;
+        set => searchTerm = value ?? string.Empty;
+    }
+
+    private string StatusFilter
+    {
+        get => statusFilter;
+        set => statusFilter = value ?? string.Empty;
+    }
+
+    private bool IsDeleteConfirmed => deleteConfirmationText.Equals("delete", StringComparison.OrdinalIgnoreCase);
+
+    private IEnumerable<ContainerTR> Filtered =>
+        containers.Where(c => MatchesSearch(c)
+                              && (statusFilter.Length == 0 || c.GetStatus().ToString() == statusFilter));
+
+    protected override void OnInitialized()
+    {
+        windowDays = Math.Max(1, Configuration.GetValue("ArrivalNotifications:DaysBefore", 10));
+        LoadContainers();
+    }
+
+    private void LoadContainers()
+    {
+        containers = DbContext.Containers
+            .Include(c => c.Shipping)
+            .Where(c => c.Deleted != 1)
+            .OrderByDescending(c => c.Id)
+            .ToList();
+    }
+
+    private bool MatchesSearch(ContainerTR c)
+    {
+        if (searchTerm.Length == 0) return true;
+
+        bool Has(string? value) => value?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false;
+
+        return Has(c.BookingNumber)
+               || Has(c.ContainerNumber)
+               || Has(c.JobReferenceNumber)
+               || Has(c.Shipping?.Name)
+               || Has(c.InvoiceNo?.ToString());
+    }
+
+    private bool IsArrivingSoon(ContainerTR c) =>
+        c.ReleaseDate == null
+        && c.Arrival.HasValue
+        && c.Arrival.Value.Date >= DateTime.Today
+        && c.Arrival.Value.Date <= DateTime.Today.AddDays(windowDays);
+
+    private static string FormatDate(DateTime? date) => date?.ToString("dd MMM yyyy") ?? string.Empty;
+
+    private async Task OpenDeleteModal(int id)
+    {
+        containerIdToDelete = id;
+        deleteConfirmationText = string.Empty;
+        await JSRuntime.InvokeVoidAsync("showModal", "#deleteModal");
+    }
+
+    private void ShowDetails(int id) => NavigationManager.NavigateTo($"/shipments/{id}");
+
+    private void AddShipment() => NavigationManager.NavigateTo("/shipments/new");
+
+    private void EditShipment(int id) => NavigationManager.NavigateTo($"/shipments/{id}/edit");
+
+    private async Task ConfirmDelete()
+    {
+        if (!IsDeleteConfirmed) return;
+
+        var container = DbContext.Containers.FirstOrDefault(c => c.Id == containerIdToDelete);
+        if (container != null)
+        {
+            container.Deleted = 1;
+            DbContext.SaveChanges();
+            LoadContainers();
+            await JSRuntime.InvokeVoidAsync("showToast", "Shipment deleted.", "success");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", "Shipment not found or already deleted.", "danger");
+        }
+
+        await JSRuntime.InvokeVoidAsync("hideModal", "#deleteModal");
+    }
+}

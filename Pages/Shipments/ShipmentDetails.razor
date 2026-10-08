@@ -1,0 +1,107 @@
+@page "/shipments/{Id:int}"
+@inject AppDbContext DbContext
+
+<PageTitle>Shipment details</PageTitle>
+
+@if (!loaded)
+{
+    <p>Loading...</p>
+}
+else if (shipment == null)
+{
+    <PageHeader Title="Shipment not found">
+        <a class="btn btn-outline-primary" href="/shipments">Back to shipments</a>
+    </PageHeader>
+}
+else
+{
+    <PageHeader Title="@shipment.ContainerNumber" Subtitle="@($"Booking {shipment.BookingNumber}")">
+        <StatusBadge Status="shipment.GetStatus()" />
+        <a class="btn btn-primary" href="/shipments/@shipment.Id/edit"><span class="oi oi-pencil" aria-hidden="true"></span> Edit</a>
+        <a class="btn btn-outline-primary" href="/shipments"><span class="oi oi-arrow-left" aria-hidden="true"></span> Back</a>
+    </PageHeader>
+
+    <div class="fd-card">
+        <div class="fd-card-title">Booking</div>
+        <div class="detail-grid">
+            @Item("Invoice no.", shipment.InvoiceNo?.ToString())
+            @Item("Job reference", shipment.JobReferenceNumber)
+            @Item("Booking number", shipment.BookingNumber)
+            @Item("Container number", shipment.ContainerNumber)
+        </div>
+    </div>
+
+    <div class="fd-card">
+        <div class="fd-card-title">Parties &amp; route</div>
+        <div class="detail-grid">
+            @Item("Client", shipment.Shipping?.Name)
+            @Item("Client email", shipment.Shipping?.Email)
+            @Item("Carrier", shipment.SteamShipLine?.Name)
+            @Item("Destination port", shipment.Destination?.destination_name)
+        </div>
+    </div>
+
+    <div class="fd-card">
+        <div class="fd-card-title">Cargo</div>
+        <div class="detail-grid">
+            @Item("Quantity", shipment.CargoQuantity?.ToString())
+            @Item("Description", shipment.CargoDescription)
+        </div>
+    </div>
+
+    <div class="fd-card">
+        <div class="fd-card-title">Schedule</div>
+        <div class="detail-grid">
+            @Item("Invoice date", Date(shipment.InvoiceDate))
+            @Item("Cut-off date", Date(shipment.CutOffDate))
+            @Item("Sailing", Date(shipment.Sailing))
+            @Item("Arrival", Date(shipment.Arrival))
+        </div>
+    </div>
+
+    <div class="fd-card">
+        <div class="fd-card-title">Billing &amp; release</div>
+        <div class="detail-grid">
+            @Item("Price", shipment.Price?.ToString("C"))
+            @Item("Payment received", Date(shipment.PaymentReceivedDate))
+            @Item("Paid to carrier", Date(shipment.PaidToSSLDate))
+            @Item("Released", Date(shipment.ReleaseDate))
+        </div>
+        @if (!string.IsNullOrWhiteSpace(shipment.Notes))
+        {
+            <hr />
+            <div class="detail-item">
+                <div class="detail-label">Notes</div>
+                <div class="detail-value">@shipment.Notes</div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ContainerTR? shipment;
+    private bool loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        shipment = await DbContext.Containers
+            .AsNoTracking()
+            .Include(c => c.Shipping)
+            .Include(c => c.Destination)
+            .Include(c => c.SteamShipLine)
+            .FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
+        loaded = true;
+    }
+
+    private static string? Date(DateTime? value) => value?.ToString("dd MMM yyyy");
+
+    private RenderFragment Item(string label, string? value) => __builder =>
+    {
+        <div class="detail-item">
+            <div class="detail-label">@label</div>
+            <div class="detail-value">@(string.IsNullOrWhiteSpace(value) ? "-" : value)</div>
+        </div>
+    };
+}

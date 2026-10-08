@@ -1,0 +1,5 @@
+<span class="status-badge @Status.CssClass()">@Status.Label()</span>
+
+@code {
+    [Parameter, EditorRequired] public ShipmentStatus Status { get; set; }
+}

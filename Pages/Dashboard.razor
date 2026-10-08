@@ -1,0 +1,173 @@
+@page "/"
+@inject AppDbContext DbContext
+@inject IConfiguration Configuration
+@inject IOptions<BrandingOptions> Branding
+
+<PageTitle>Dashboard - @Branding.Value.CompanyName</PageTitle>
+
+<PageHeader Title="Dashboard" Subtitle="@($"Overview of your shipments at {Branding.Value.CompanyName}")">
+    <a class="btn btn-primary" href="/shipments/new"><span class="oi oi-plus" aria-hidden="true"></span> New shipment</a>
+</PageHeader>
+
+@if (failedEmails > 0)
+{
+    <div class="alert alert-warning" role="alert">
+        @failedEmails @(failedEmails == 1 ? "email" : "emails") failed to send in the last 7 days.
+        <a class="ms-1" href="/emails?filter=failed">Review and resend</a>
+    </div>
+}
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-label">Active shipments</div>
+        <div class="stat-value">@total</div>
+    </div>
+    <div class="stat-card stat-red">
+        <div class="stat-label">Needs attention</div>
+        <div class="stat-value">@attention.Count</div>
+    </div>
+    <div class="stat-card stat-amber">
+        <div class="stat-label">Arriving within @windowDays days</div>
+        <div class="stat-value">@arrivingSoon</div>
+    </div>
+    <div class="stat-card stat-slate">
+        <div class="stat-label">Awaiting payment</div>
+        <div class="stat-value">@awaitingPayment</div>
+    </div>
+    <div class="stat-card stat-green">
+        <div class="stat-label">Released</div>
+        <div class="stat-value">@released</div>
+    </div>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Needs attention</div>
+    @if (attention.Count == 0)
+    {
+        <div class="empty-state">Nothing needs your attention right now.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table fd-table">
+                <thead>
+                    <tr>
+                        <th>Container</th>
+                        <th>Client</th>
+                        <th>Arrival</th>
+                        <th>Why</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in attention)
+                    {
+                        <tr>
+                            <td>@item.Shipment.ContainerNumber</td>
+                            <td>@item.Shipment.Shipping?.Name</td>
+                            <td>@item.Shipment.Arrival?.ToString("dd MMM yyyy")</td>
+                            <td>
+                                @foreach (var reason in item.Reasons)
+                                {
+                                    <span class="status-badge @reason.CssClass() me-1">@reason.Label()</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-primary" href="/shipments/@item.Shipment.Id">View</a>
+                                <a class="btn btn-sm btn-primary" href="/shipments/@item.Shipment.Id/edit">Update</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Upcoming arrivals</div>
+    @if (upcoming.Count == 0)
+    {
+        <div class="empty-state">No upcoming arrivals. <a href="/shipments/new">Add a shipment</a> to get started.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table fd-table">
+                <thead>
+                    <tr>
+                        <th>Arrival</th>
+                        <th>Container</th>
+                        <th>Client</th>
+                        <th>Destination</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in upcoming)
+                    {
+                        <tr>
+                            <td>@s.Arrival?.ToString("dd MMM yyyy")</td>
+                            <td>@s.ContainerNumber</td>
+                            <td>@s.Shipping?.Name</td>
+                            <td>@s.Destination?.destination_name</td>
+                            <td><StatusBadge Status="s.GetStatus()" /></td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/shipments/@s.Id">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private record AttentionItem(ContainerTR Shipment, IReadOnlyList<AttentionReason> Reasons);
+
+    private int total;
+    private int arrivingSoon;
+    private int awaitingPayment;
+    private int released;
+    private int failedEmails;
+    private int windowDays = 10;
+    private List<AttentionItem> attention = new();
+    private List<ContainerTR> upcoming = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        windowDays = Math.Max(1, Configuration.GetValue("ArrivalNotifications:DaysBefore", 10));
+        var today = DateTime.Today;
+
+        var all = await DbContext.Containers
+            .AsNoTracking()
+            .Include(c => c.Shipping)
+            .Include(c => c.Destination)
+            .Where(c => c.Deleted != 1)
+            .ToListAsync();
+
+        var open = all.Where(c => c.ReleaseDate == null).ToList();
+
+        total = all.Count;
+        released = all.Count - open.Count;
+        awaitingPayment = open.Count(c => c.PaymentReceivedDate == null);
+        arrivingSoon = open.Count(c => c.Arrival.HasValue
+                                       && c.Arrival.Value.Date >= today
+                                       && c.Arrival.Value.Date <= today.AddDays(windowDays));
+
+        attention = open
+            .Select(c => new AttentionItem(c, AttentionRules.Evaluate(c, today, windowDays)))
+            .Where(i => i.Reasons.Count > 0)
+            .OrderBy(i => i.Shipment.Arrival ?? DateTime.MaxValue)
+            .ToList();
+
+        upcoming = open
+            .Where(c => c.Arrival.HasValue && c.Arrival.Value.Date >= today)
+            .OrderBy(c => c.Arrival)
+            .Take(8)
+            .ToList();
+
+        var since = DateTime.UtcNow.AddDays(-7);
+        failedEmails = await DbContext.EmailLogs.CountAsync(l => !l.Success && l.SentAtUtc >= since);
+    }
+}

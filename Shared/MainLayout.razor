@@ -1,0 +1,26 @@
+@inherits LayoutComponentBase
+@inject IOptions<BrandingOptions> Branding
+
+<PageTitle>@Branding.Value.CompanyName</PageTitle>
+
+<div class="page">
+    <aside class="sidebar">
+        <NavMenu />
+    </aside>
+
+    <main>
+        <header class="topbar">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="topbar-user"><span class="oi oi-person" aria-hidden="true"></span> @context.User.Identity?.Name</span>
+                    <a class="topbar-link" href="/Identity/Account/Manage">Account</a>
+                    <a class="topbar-link" href="/Identity/Account/Logout">Sign out</a>
+                </Authorized>
+            </AuthorizeView>
+        </header>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

@@ -1,0 +1,62 @@
+@inject IOptions<BrandingOptions> Branding
+
+<div class="brand-bar">
+    <a class="brand" href="/">
+        <span class="brand-mark"><span class="oi oi-box" aria-hidden="true"></span></span>
+        <span class="brand-text">
+            <strong>@Branding.Value.CompanyName</strong>
+            <small>@Branding.Value.Tagline</small>
+        </span>
+    </a>
+    <button title="Navigation menu" class="nav-toggle" @onclick="ToggleNavMenu">
+        <span class="oi oi-menu" aria-hidden="true"></span>
+    </button>
+</div>
+
+<div class="@NavMenuCssClass nav-scroll" @onclick="ToggleNavMenu">
+    <nav class="nav flex-column">
+        <div class="nav-section">Overview</div>
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+            <span class="oi oi-dashboard" aria-hidden="true"></span> Dashboard
+        </NavLink>
+
+        <div class="nav-section">Operations</div>
+        <NavLink class="nav-link" href="/shipments" Match="NavLinkMatch.All">
+            <span class="oi oi-list" aria-hidden="true"></span> All shipments
+        </NavLink>
+        <NavLink class="nav-link" href="/shipments/new" Match="NavLinkMatch.All">
+            <span class="oi oi-plus" aria-hidden="true"></span> New shipment
+        </NavLink>
+        <NavLink class="nav-link" href="/emails" Match="NavLinkMatch.All">
+            <span class="oi oi-envelope-closed" aria-hidden="true"></span> Email log
+        </NavLink>
+
+        <div class="nav-section">Directory</div>
+        <NavLink class="nav-link" href="/clients" Match="NavLinkMatch.All">
+            <span class="oi oi-people" aria-hidden="true"></span> Clients
+        </NavLink>
+        <NavLink class="nav-link" href="/carriers" Match="NavLinkMatch.All">
+            <span class="oi oi-globe" aria-hidden="true"></span> Carriers
+        </NavLink>
+        <NavLink class="nav-link" href="/ports" Match="NavLinkMatch.All">
+            <span class="oi oi-map-marker" aria-hidden="true"></span> Ports
+        </NavLink>
+
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-section">Administration</div>
+                <NavLink class="nav-link" href="/admin/users">
+                    <span class="oi oi-shield" aria-hidden="true"></span> Users &amp; roles
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+}

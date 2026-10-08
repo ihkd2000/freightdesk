@@ -1,0 +1,278 @@
+@typeparam TItem where TItem : class, new()
+@using System.Text.Json
+
+<PageTitle>@Title</PageTitle>
+
+<PageHeader Title="@Title" Subtitle="@Subtitle" />
+
+@if (!string.IsNullOrEmpty(feedback))
+{
+    <div class="alert @(feedbackIsError ? "alert-danger" : "alert-success")" role="alert">@feedback</div>
+}
+
+<div class="fd-card">
+    <div class="fd-card-title">Add @ItemLabel.ToLowerInvariant()</div>
+    <EditForm Model="@newItem" OnValidSubmit="HandleCreate">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="row g-3">
+            @Fields(newItem)
+        </div>
+        <div class="form-actions mt-3">
+            <button type="submit" class="btn btn-primary">Save @ItemLabel.ToLowerInvariant()</button>
+        </div>
+    </EditForm>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">@Title</div>
+    <input class="form-control mb-3" type="text" placeholder="Search..." @bind="SearchTerm" @bind:event="oninput" />
+    <div class="table-wrap">
+        <table class="table fd-table">
+            <thead>
+                <tr>
+                    @Headers
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in PageItems.ToList())
+                {
+                    <tr>
+                        @Cells(item)
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-outline-primary btn-icon" title="Edit" @onclick="() => OpenEdit(item)"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                            <button class="btn btn-outline-danger btn-icon" title="Delete" @onclick="() => OpenDelete(item)"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Filtered.Any())
+        {
+            <div class="empty-state">Nothing here yet.</div>
+        }
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <button class="btn btn-outline-primary" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage <= 1)">Previous</button>
+        <span class="text-muted">Page @currentPage of @TotalPages</span>
+        <button class="btn btn-outline-primary" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage >= TotalPages)">Next</button>
+    </div>
+</div>
+
+@if (editItem is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background: rgba(11, 37, 48, .55);">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit @ItemLabel.ToLowerInvariant()</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseEdit"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(editError))
+                    {
+                        <div class="alert alert-danger">@editError</div>
+                    }
+                    <EditForm Model="@editItem" OnValidSubmit="HandleUpdate">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="row g-3">
+                            @Fields(editItem)
+                        </div>
+                        <div class="modal-footer px-0 pb-0 mt-3">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CloseEdit">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Update</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (deleteItem is not null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background: rgba(11, 37, 48, .55);">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete @ItemLabel.ToLowerInvariant()</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseDelete"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(deleteError))
+                    {
+                        <div class="alert alert-danger">@deleteError</div>
+                    }
+                    <p>Are you sure you want to delete <strong>@DisplayName(deleteItem)</strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseDelete">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string ItemLabel { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public int PageSize { get; set; } = 10;
+
+    /// <summary>Loads all rows (use AsNoTracking so edits work on detached copies).</summary>
+    [Parameter, EditorRequired] public Func<Task<List<TItem>>> LoadAsync { get; set; } = default!;
+    /// <summary>Text used for searching and in the delete confirmation.</summary>
+    [Parameter, EditorRequired] public Func<TItem, string?> DisplayName { get; set; } = default!;
+    /// <summary>Each callback returns an error message, or null on success.</summary>
+    [Parameter, EditorRequired] public Func<TItem, Task<string?>> CreateAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<TItem, Task<string?>> UpdateAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<TItem, Task<string?>> DeleteAsync { get; set; } = default!;
+
+    [Parameter, EditorRequired] public RenderFragment<TItem> Fields { get; set; } = default!;
+    [Parameter, EditorRequired] public RenderFragment Headers { get; set; } = default!;
+    [Parameter, EditorRequired] public RenderFragment<TItem> Cells { get; set; } = default!;
+
+    private List<TItem> items = new();
+    private TItem newItem = new();
+    private TItem? editItem;
+    private TItem? deleteItem;
+    private string feedback = string.Empty;
+    private bool feedbackIsError;
+    private string editError = string.Empty;
+    private string deleteError = string.Empty;
+    private string searchTerm = string.Empty;
+    private int currentPage = 1;
+
+    private string SearchTerm
+    {
+        get => searchTerm;
+        set
+        {
+            searchTerm = value ?? string.Empty;
+            currentPage = 1;
+        }
+    }
+
+    private IEnumerable<TItem> Filtered =>
+        string.IsNullOrWhiteSpace(searchTerm)
+            ? items
+            : items.Where(i => (DisplayName(i) ?? string.Empty).Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(Filtered.Count() / (double)PageSize));
+
+    private IEnumerable<TItem> PageItems => Filtered.Skip((currentPage - 1) * PageSize).Take(PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        items = await LoadAsync();
+        if (currentPage > TotalPages) currentPage = TotalPages;
+    }
+
+    private void ChangePage(int page)
+    {
+        currentPage = Math.Clamp(page, 1, TotalPages);
+    }
+
+    private void SetFeedback(string message, bool isError = false)
+    {
+        feedback = message;
+        feedbackIsError = isError;
+    }
+
+    private static async Task<string?> RunAsync(Func<Task<string?>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
+    }
+
+    private static TItem Clone(TItem item) =>
+        JsonSerializer.Deserialize<TItem>(JsonSerializer.Serialize(item))!;
+
+    private async Task HandleCreate()
+    {
+        var model = newItem;
+        var error = await RunAsync(() => CreateAsync(model));
+        if (error is null)
+        {
+            SetFeedback($"{ItemLabel} saved successfully.");
+            newItem = new TItem();
+            await ReloadAsync();
+        }
+        else
+        {
+            SetFeedback(error, true);
+        }
+    }
+
+    private void OpenEdit(TItem item)
+    {
+        editError = string.Empty;
+        editItem = Clone(item);
+    }
+
+    private void CloseEdit()
+    {
+        editItem = null;
+    }
+
+    private async Task HandleUpdate()
+    {
+        var model = editItem;
+        if (model is null) return;
+
+        var error = await RunAsync(() => UpdateAsync(model));
+        if (error is null)
+        {
+            SetFeedback($"{ItemLabel} updated successfully.");
+            editItem = null;
+            await ReloadAsync();
+        }
+        else
+        {
+            editError = error;
+        }
+    }
+
+    private void OpenDelete(TItem item)
+    {
+        deleteError = string.Empty;
+        deleteItem = item;
+    }
+
+    private void CloseDelete()
+    {
+        deleteItem = null;
+    }
+
+    private async Task HandleDelete()
+    {
+        var model = deleteItem;
+        if (model is null) return;
+
+        var error = await RunAsync(() => DeleteAsync(model));
+        if (error is null)
+        {
+            SetFeedback($"{ItemLabel} deleted successfully.");
+            deleteItem = null;
+            await ReloadAsync();
+        }
+        else
+        {
+            deleteError = error;
+        }
+    }
+}

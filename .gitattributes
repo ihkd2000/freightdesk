@@ -1,0 +1,10 @@
+# Normalize line endings
+* text=auto
+
+# Specific file types
+*.css text
+*.min.css binary
+*.js text
+*.html text
+*.sln text eol=crlf
+*.sh text eol=lf

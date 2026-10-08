@@ -1,0 +1,133 @@
+<div class="fd-card">
+    <div class="fd-card-title">Booking</div>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label" for="invoiceNo">Invoice no.</label>
+            <InputNumber id="invoiceNo" class="form-control" @bind-Value="Model.InvoiceNo" />
+            <ValidationMessage For="@(() => Model.InvoiceNo)" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="jobRef">Job reference</label>
+            <InputText id="jobRef" class="form-control" @bind-Value="Model.JobReferenceNumber" />
+            <ValidationMessage For="@(() => Model.JobReferenceNumber)" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="bookingNo">Booking number</label>
+            <InputText id="bookingNo" class="form-control" @bind-Value="Model.BookingNumber" />
+            <ValidationMessage For="@(() => Model.BookingNumber)" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="containerNo">Container number</label>
+            <InputText id="containerNo" class="form-control" @bind-Value="Model.ContainerNumber" />
+            <ValidationMessage For="@(() => Model.ContainerNumber)" />
+        </div>
+    </div>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Parties &amp; route</div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label" for="client">Client</label>
+            <InputSelect id="client" class="form-select" @bind-Value="Model.ShippingId">
+                <option value="0">Select a client</option>
+                @foreach (var client in Clients)
+                {
+                    <option value="@client.Id">@client.Name</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => Model.ShippingId)" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="carrier">Carrier</label>
+            <InputSelect id="carrier" class="form-select" @bind-Value="Model.SteamShipLineId">
+                <option value="">Select a carrier</option>
+                @foreach (var carrier in Carriers)
+                {
+                    <option value="@carrier.Id">@carrier.Name</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => Model.SteamShipLineId)" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="port">Destination port</label>
+            <InputSelect id="port" class="form-select" @bind-Value="Model.DestinationId">
+                <option value="0">Select a port</option>
+                @foreach (var port in Ports)
+                {
+                    <option value="@port.Id">@port.destination_name</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => Model.DestinationId)" />
+        </div>
+    </div>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Cargo</div>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label" for="qty">Quantity</label>
+            <InputNumber id="qty" class="form-control" @bind-Value="Model.CargoQuantity" />
+        </div>
+        <div class="col-md-9">
+            <label class="form-label" for="cargoDesc">Description</label>
+            <InputText id="cargoDesc" class="form-control" @bind-Value="Model.CargoDescription" />
+        </div>
+    </div>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Schedule</div>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label" for="invDate">Invoice date</label>
+            <InputDate id="invDate" class="form-control" @bind-Value="Model.InvoiceDate" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="cutoff">Cut-off date</label>
+            <InputDate id="cutoff" class="form-control" @bind-Value="Model.CutOffDate" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="sailing">Sailing</label>
+            <InputDate id="sailing" class="form-control" @bind-Value="Model.Sailing" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="arrival">Arrival</label>
+            <InputDate id="arrival" class="form-control" @bind-Value="Model.Arrival" />
+        </div>
+    </div>
+</div>
+
+<div class="fd-card">
+    <div class="fd-card-title">Billing &amp; release</div>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label" for="price">Price</label>
+            <InputNumber id="price" class="form-control" @bind-Value="Model.Price" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="paidDate">Payment received</label>
+            <InputDate id="paidDate" class="form-control" @bind-Value="Model.PaymentReceivedDate" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="paidCarrier">Paid to carrier</label>
+            <InputDate id="paidCarrier" class="form-control" @bind-Value="Model.PaidToSSLDate" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="released">Released</label>
+            <InputDate id="released" class="form-control" @bind-Value="Model.ReleaseDate" />
+        </div>
+        <div class="col-12">
+            <label class="form-label" for="notes">Notes</label>
+            <InputTextArea id="notes" class="form-control" rows="3" @bind-Value="Model.Notes" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ContainerTR Model { get; set; } = default!;
+    [Parameter] public IReadOnlyList<Shipping> Clients { get; set; } = Array.Empty<Shipping>();
+    [Parameter] public IReadOnlyList<SteamShipLine> Carriers { get; set; } = Array.Empty<SteamShipLine>();
+    [Parameter] public IReadOnlyList<Destination> Ports { get; set; } = Array.Empty<Destination>();
+}

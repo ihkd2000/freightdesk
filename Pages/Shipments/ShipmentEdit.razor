@@ -1,0 +1,89 @@
+@page "/shipments/{Id:int}/edit"
+@inject AppDbContext DbContext
+@inject ILogger<ShipmentEdit> Logger
+
+<PageTitle>Edit shipment</PageTitle>
+
+<PageHeader Title="Edit shipment" Subtitle="@model?.ContainerNumber">
+    <a class="btn btn-outline-primary" href="/shipments"><span class="oi oi-arrow-left" aria-hidden="true"></span> Back to shipments</a>
+</PageHeader>
+
+@if (!loaded)
+{
+    <p>Loading...</p>
+}
+else if (model == null)
+{
+    <div class="alert alert-warning">That shipment could not be found.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @(messageIsError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+    }
+
+    <EditForm Model="@model" OnValidSubmit="SaveChanges">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" />
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@isSaving">Save changes</button>
+            <a class="btn btn-outline-secondary" href="/shipments/@Id">View details</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ContainerTR? model;
+    private DateTime? originalArrival;
+    private List<Shipping> clients = new();
+    private List<SteamShipLine> carriers = new();
+    private List<Destination> ports = new();
+    private bool loaded;
+    private bool isSaving;
+    private string? message;
+    private bool messageIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        model = await DbContext.Containers.FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
+        originalArrival = model?.Arrival;
+        clients = await DbContext.Shippings.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        carriers = await DbContext.SteamShipLines.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
+        ports = await DbContext.Destinations.AsNoTracking().OrderBy(d => d.destination_name).ToListAsync();
+        loaded = true;
+    }
+
+    private async Task SaveChanges()
+    {
+        isSaving = true;
+        try
+        {
+            // A new arrival date restarts the payment-reminder schedule.
+            if (model != null && model.Arrival != originalArrival)
+            {
+                model.PaymentRemindersSent = 0;
+                originalArrival = model.Arrival;
+            }
+
+            await DbContext.SaveChangesAsync();
+            message = "Changes saved.";
+            messageIsError = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not update shipment {Id}.", Id);
+            message = $"Could not save the changes: {ex.Message}";
+            messageIsError = true;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
