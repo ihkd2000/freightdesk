@@ -114,6 +114,10 @@ namespace FreightDesk.Infra
             return errors;
         }
 
+        /// <summary>One more than the highest invoice number used so far (deleted shipments included), or 1.</summary>
+        public static async Task<int> NextInvoiceNumberAsync(AppDbContext db, CancellationToken cancellationToken = default) =>
+            (await db.Shipments.MaxAsync(x => x.InvoiceNo, cancellationToken) ?? 0) + 1;
+
         /// <summary>Id of another active shipment with the same container and booking number, if any.</summary>
         public static async Task<int?> FindDuplicateAsync(AppDbContext db, Shipment s, CancellationToken cancellationToken = default)
         {

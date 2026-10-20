@@ -188,4 +188,17 @@ public sealed class DuplicateShipmentTests : IDisposable
         var existing = Add("CSQU3054383", "BK-1");
         Assert.Null(await ShipmentRules.FindDuplicateAsync(_db, existing));
     }
+
+    [Fact]
+    public async Task Next_invoice_number_starts_at_one_and_follows_the_highest_used()
+    {
+        Assert.Equal(1, await ShipmentRules.NextInvoiceNumberAsync(_db));
+
+        Add("CSQU3054383", "BK-1").InvoiceNo = 41;
+        Add("MSCU1234566", "BK-2", deleted: 1).InvoiceNo = 57; // deleted shipments keep their number
+        Add("TCLU1234568", "BK-3");
+        _db.SaveChanges();
+
+        Assert.Equal(58, await ShipmentRules.NextInvoiceNumberAsync(_db));
+    }
 }

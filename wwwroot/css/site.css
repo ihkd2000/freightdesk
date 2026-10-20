@@ -126,3 +126,12 @@ a:hover { color: var(--fd-primary-dark); }
 .fd-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .email-preview { width: 100%; height: 60vh; border: 1px solid var(--fd-border); border-radius: 8px; background: #fff; }
 @media (max-width: 991.98px) { .shipment-summary { position: static; } }
+
+/* Type-to-search picker */
+.lookup-picker { position: relative; }
+.lookup-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: .3rem 0; list-style: none; background: var(--fd-surface); border: 1px solid var(--fd-border); border-radius: 8px; box-shadow: var(--fd-shadow); max-height: 280px; overflow-y: auto; }
+.lookup-list li { padding: .4rem .75rem; cursor: pointer; }
+.lookup-list li.active, .lookup-list li:hover { background: #eef4f6; }
+.lookup-list li.lookup-create { color: var(--fd-primary); font-weight: 600; border-top: 1px solid var(--fd-border); }
+.fd-modal.fd-modal-sm { width: min(420px, 100%); }
+.text-uppercase::placeholder { text-transform: none; }

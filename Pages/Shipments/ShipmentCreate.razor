@@ -37,7 +37,8 @@
     <div class="row g-4">
         <div class="col-lg-8">
             <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false"
-                            MoreContainers="moreContainers" ContainersChanged="StateHasChanged" />
+                            MoreContainers="moreContainers" ContainersChanged="StateHasChanged"
+                            OnQuickAdd="StartQuickAdd" />
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" disabled="@isSaving">@SaveLabel</button>
@@ -53,12 +54,17 @@
     </div>
 </EditForm>
 
+<QuickAddDialog Kind="quickAdd?.Kind" InitialName="@(quickAdd?.Name ?? "")" OnAdded="QuickAdded" OnCancel="() => quickAdd = null" />
+
 @code {
     private Shipment model = new();
     private EditContext editContext = default!;
     private bool notifyClient = true;
     private int? duplicateId;
     private List<ContainerEntry> moreContainers = new();
+    private QuickAddRequest? quickAdd;
+    // The invoice number we filled in; if it is still untouched at save time it is re-read in case someone else took it.
+    private int? suggestedInvoiceNo;
     private int arrivalDaysBefore;
     private int[] reminderOffsets = Array.Empty<int>();
     // Blazor Server shares one DbContext per circuit; the live duplicate check and Save must not overlap.
@@ -89,10 +95,46 @@
         arrivalDaysBefore = EmailSchedule.ArrivalDaysBefore(Configuration);
         reminderOffsets = EmailSchedule.ReminderOffsets(Configuration);
         ResetForm();
+        await LoadLookupsAsync();
+        await SuggestInvoiceAsync();
+    }
 
+    private async Task LoadLookupsAsync()
+    {
         clients = await DbContext.Clients.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         carriers = await DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
+    }
+
+    private async Task SuggestInvoiceAsync()
+    {
+        suggestedInvoiceNo = await ShipmentRules.NextInvoiceNumberAsync(DbContext);
+        model.InvoiceNo = suggestedInvoiceNo;
+        model.InvoiceDate = DateTime.Today;
+    }
+
+    private void StartQuickAdd(QuickAddRequest request) => quickAdd = request;
+
+    private async Task QuickAdded(int id)
+    {
+        var kind = quickAdd!.Kind;
+        quickAdd = null;
+        await LoadLookupsAsync();
+        switch (kind)
+        {
+            case QuickAddKind.Client:
+                model.ClientId = id;
+                editContext.NotifyFieldChanged(editContext.Field(nameof(Shipment.ClientId)));
+                break;
+            case QuickAddKind.Carrier:
+                model.CarrierId = id;
+                editContext.NotifyFieldChanged(editContext.Field(nameof(Shipment.CarrierId)));
+                break;
+            default:
+                model.PortId = id;
+                editContext.NotifyFieldChanged(editContext.Field(nameof(Shipment.PortId)));
+                break;
+        }
     }
 
     private void ResetForm()
@@ -197,6 +239,11 @@
                 return;
             }
 
+            if (model.InvoiceNo == suggestedInvoiceNo)
+            {
+                model.InvoiceNo = await ShipmentRules.NextInvoiceNumberAsync(DbContext);
+            }
+
             model.Owner = userId;
             var shipments = new List<Shipment> { model };
             shipments.AddRange(moreContainers.Select(c => model.CopyForContainer(c.Number)));
@@ -225,6 +272,8 @@
             var containers = shipments.Select(s => s.ContainerNumber).ToList();
             savedId = shipments.Count == 1 ? model.Id : null;
             ResetForm();
+
+            await SuggestInvoiceAsync();
 
             var what = containers.Count == 1
                 ? $"Shipment {containers[0]}"

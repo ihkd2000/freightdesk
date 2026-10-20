@@ -70,35 +70,32 @@
     <div class="row g-3">
         <div class="col-sm-6 col-xl-4">
             <label class="form-label required" for="client">Client</label>
-            <InputSelect id="client" class="form-select" @bind-Value="Model.ClientId">
-                <option value="0">Select a client</option>
-                @foreach (var client in Clients)
-                {
-                    <option value="@client.Id">@client.Name</option>
-                }
-            </InputSelect>
+            <LookupPicker Id="client" ItemLabel="client" Placeholder="Search clients"
+                          Items="@(Clients.Select(c => new LookupPicker.Option(c.Id, c.Name)).ToList())"
+                          Value="@(Model.ClientId == 0 ? null : Model.ClientId)"
+                          ValueChanged="@(id => SetField(() => Model.ClientId, () => Model.ClientId = id ?? 0))"
+                          CssClass="@EditContext?.FieldCssClass(() => Model.ClientId)"
+                          OnCreate="@CreateHandler(QuickAddKind.Client)" />
             <ValidationMessage For="@(() => Model.ClientId)" />
         </div>
         <div class="col-sm-6 col-xl-4">
             <label class="form-label required" for="carrier">Carrier</label>
-            <InputSelect id="carrier" class="form-select" @bind-Value="Model.CarrierId">
-                <option value="">Select a carrier</option>
-                @foreach (var carrier in Carriers)
-                {
-                    <option value="@carrier.Id">@carrier.Name</option>
-                }
-            </InputSelect>
+            <LookupPicker Id="carrier" ItemLabel="carrier" Placeholder="Search carriers"
+                          Items="@(Carriers.Select(c => new LookupPicker.Option(c.Id, c.Name)).ToList())"
+                          Value="@Model.CarrierId"
+                          ValueChanged="@(id => SetField(() => Model.CarrierId, () => Model.CarrierId = id))"
+                          CssClass="@EditContext?.FieldCssClass(() => Model.CarrierId)"
+                          OnCreate="@CreateHandler(QuickAddKind.Carrier)" />
             <ValidationMessage For="@(() => Model.CarrierId)" />
         </div>
         <div class="col-sm-6 col-xl-4">
             <label class="form-label required" for="port">Destination port</label>
-            <InputSelect id="port" class="form-select" @bind-Value="Model.PortId">
-                <option value="0">Select a port</option>
-                @foreach (var port in Ports)
-                {
-                    <option value="@port.Id">@port.Name</option>
-                }
-            </InputSelect>
+            <LookupPicker Id="port" ItemLabel="port" Placeholder="Search ports"
+                          Items="@(Ports.Select(p => new LookupPicker.Option(p.Id, p.Name)).ToList())"
+                          Value="@(Model.PortId == 0 ? null : Model.PortId)"
+                          ValueChanged="@(id => SetField(() => Model.PortId, () => Model.PortId = id ?? 0))"
+                          CssClass="@EditContext?.FieldCssClass(() => Model.PortId)"
+                          OnCreate="@CreateHandler(QuickAddKind.Port)" />
             <ValidationMessage For="@(() => Model.PortId)" />
         </div>
     </div>
@@ -181,6 +178,22 @@
 
     /// <summary>Payment, carrier-payment and release dates happen after registration, so the create page hides them.</summary>
     [Parameter] public bool ShowLifecycle { get; set; } = true;
+
+    [CascadingParameter] private EditContext? EditContext { get; set; }
+
+    /// <summary>When set, the pickers offer to add a client, carrier or port that is not in the list yet.</summary>
+    [Parameter] public EventCallback<QuickAddRequest> OnQuickAdd { get; set; }
+
+    private EventCallback<string> CreateHandler(QuickAddKind kind) => OnQuickAdd.HasDelegate
+        ? EventCallback.Factory.Create<string>(this, name => OnQuickAdd.InvokeAsync(new QuickAddRequest(kind, name)))
+        : default;
+
+    // The pickers are not InputBase components, so tell the form a field changed (validation, summary panel).
+    private void SetField<T>(System.Linq.Expressions.Expression<Func<T>> field, Action assign)
+    {
+        assign();
+        EditContext?.NotifyFieldChanged(FieldIdentifier.Create(field));
+    }
 
     /// <summary>Extra containers on the same booking (create page only); null hides the option.</summary>
     [Parameter] public List<ContainerEntry>? MoreContainers { get; set; }

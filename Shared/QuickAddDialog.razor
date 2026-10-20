@@ -1,0 +1,172 @@
+@using System.ComponentModel.DataAnnotations
+@inject AppDbContext DbContext
+@inject ILogger<QuickAddDialog> Logger
+
+@* Adds a client, carrier or port without leaving the shipment form. *@
+
+@if (Kind != null)
+{
+    <div class="fd-modal-backdrop">
+        <div class="fd-modal fd-modal-sm" role="dialog" aria-modal="true" aria-labelledby="quickAddTitle">
+            <div class="fd-modal-head">
+                <div class="summary-label" id="quickAddTitle">New @Label</div>
+                <button type="button" class="btn-close" aria-label="Cancel" @onclick="Cancel"></button>
+            </div>
+
+            @* A plain div rather than a form, so the dialog also works if it is ever placed inside another form. *@
+            <div @onkeydown="OnKeyDown">
+                <label class="form-label required" for="quickAddName">Name</label>
+                <input id="quickAddName" @ref="nameInput" class="form-control @(nameError == null ? "" : "invalid")" @bind="name" @bind:event="oninput" maxlength="100" />
+                @if (nameError != null)
+                {
+                    <div class="validation-message">@nameError</div>
+                }
+
+                @if (Kind == QuickAddKind.Client)
+                {
+                    <label class="form-label required mt-3" for="quickAddEmail">Email</label>
+                    <input id="quickAddEmail" type="email" class="form-control @(emailError == null ? "" : "invalid")" @bind="email" @bind:event="oninput" maxlength="100" />
+                    @if (emailError != null)
+                    {
+                        <div class="validation-message">@emailError</div>
+                    }
+                    <div class="form-text">Registration emails, arrival notices and payment reminders go here.</div>
+                }
+
+                @if (saveError != null)
+                {
+                    <div class="alert alert-danger mt-3 mb-0">@saveError</div>
+                }
+
+                <div class="form-actions mt-3">
+                    <button type="button" class="btn btn-primary" disabled="@saving" @onclick="Save">@(saving ? "Adding..." : $"Add {Label}")</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>What to add; null hides the dialog.</summary>
+    [Parameter] public QuickAddKind? Kind { get; set; }
+    [Parameter] public string InitialName { get; set; } = "";
+    /// <summary>Called with the new record's id after it is saved.</summary>
+    [Parameter] public EventCallback<int> OnAdded { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private QuickAddKind? shownKind;
+    private string name = "";
+    private string email = "";
+    private string? nameError, emailError, saveError;
+    private bool saving;
+    private ElementReference nameInput;
+    private bool focusPending;
+
+    private string Label => Kind switch
+    {
+        QuickAddKind.Client => "client",
+        QuickAddKind.Carrier => "carrier",
+        _ => "port"
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (Kind != shownKind)
+        {
+            shownKind = Kind;
+            name = InitialName;
+            email = "";
+            nameError = emailError = saveError = null;
+            focusPending = Kind != null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusPending)
+        {
+            focusPending = false;
+            await nameInput.FocusAsync();
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Cancel();
+        else if (e.Key == "Enter" && !saving) await Save();
+    }
+
+    private async Task Save()
+    {
+        var trimmed = name.Trim();
+        nameError = trimmed.Length == 0 ? "Name is required." : null;
+        emailError = null;
+        if (Kind == QuickAddKind.Client)
+        {
+            email = email.Trim();
+            emailError = email.Length == 0 ? "Email is required."
+                : new EmailAddressAttribute().IsValid(email) ? null : "Enter a valid email address.";
+        }
+        if (nameError != null || emailError != null) return;
+
+        saving = true;
+        saveError = null;
+        try
+        {
+            var upper = trimmed.ToUpper();
+            var exists = Kind switch
+            {
+                QuickAddKind.Client => await DbContext.Clients.AnyAsync(c => c.Name.ToUpper() == upper),
+                QuickAddKind.Carrier => await DbContext.Carriers.AnyAsync(c => c.Name.ToUpper() == upper),
+                _ => await DbContext.Ports.AnyAsync(p => p.Name.ToUpper() == upper)
+            };
+            if (exists)
+            {
+                nameError = $"A {Label} with this name already exists.";
+                return;
+            }
+
+            int id;
+            switch (Kind)
+            {
+                case QuickAddKind.Client:
+                    var client = new Client { Name = trimmed, Email = email };
+                    DbContext.Clients.Add(client);
+                    await DbContext.SaveChangesAsync();
+                    id = client.Id;
+                    break;
+                case QuickAddKind.Carrier:
+                    var carrier = new Carrier { Name = trimmed };
+                    DbContext.Carriers.Add(carrier);
+                    await DbContext.SaveChangesAsync();
+                    id = carrier.Id;
+                    break;
+                default:
+                    var port = new Port { Name = trimmed };
+                    DbContext.Ports.Add(port);
+                    await DbContext.SaveChangesAsync();
+                    id = port.Id;
+                    break;
+            }
+
+            await OnAdded.InvokeAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not add {Kind}.", Kind);
+            saveError = $"Could not add the {Label}. Please try again.";
+            // Forget only the failed insert; the page may be tracking other entities.
+            foreach (var entry in DbContext.ChangeTracker.Entries().Where(e => e.State == EntityState.Added).ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

@@ -1,0 +1,164 @@
+@* Type-to-search picker for clients, carriers and ports, with an optional "add new" entry. *@
+
+<div class="lookup-picker">
+    <input id="@Id" class="form-control @CssClass" role="combobox" autocomplete="off"
+           aria-expanded="@(open ? "true" : "false")" aria-controls="@ListId" aria-autocomplete="list"
+           aria-activedescendant="@(open && highlighted >= 0 ? $"{ListId}-{highlighted}" : null)"
+           placeholder="@Placeholder" value="@text"
+           @oninput="OnInput" @onfocus="Open" @onblur="Close" @onkeydown="OnKeyDown" />
+    @* wwwroot/js/lookup-picker.js stops Enter and the arrow keys from doing their usual thing while the list is open. *@
+    @if (open && (matches.Count > 0 || CanCreate))
+    {
+        <ul class="lookup-list" id="@ListId" role="listbox">
+            @for (var i = 0; i < matches.Count; i++)
+            {
+                var item = matches[i];
+                var index = i;
+                <li id="@($"{ListId}-{index}")" role="option" aria-selected="@(index == highlighted ? "true" : "false")"
+                    class="@(index == highlighted ? "active" : "")"
+                    @onmousedown="() => Select(item)" @onmousedown:preventDefault="true">
+                    @item.Name
+                </li>
+            }
+            @if (CanCreate)
+            {
+                <li id="@($"{ListId}-{matches.Count}")" role="option" class="lookup-create @(highlighted == matches.Count ? "active" : "")"
+                    aria-selected="@(highlighted == matches.Count ? "true" : "false")"
+                    @onmousedown="RequestCreate" @onmousedown:preventDefault="true">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add “@text.Trim()” as a new @ItemLabel
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    public record Option(int Id, string Name);
+
+    [Parameter, EditorRequired] public string Id { get; set; } = default!;
+    [Parameter] public IReadOnlyList<Option> Items { get; set; } = Array.Empty<Option>();
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    [Parameter] public string ItemLabel { get; set; } = "item";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+
+    /// <summary>When set, typing a name that is not in the list offers to create it.</summary>
+    [Parameter] public EventCallback<string> OnCreate { get; set; }
+
+    private const int MaxShown = 8;
+    private string ListId => Id + "-list";
+    private string text = "";
+    private bool open;
+    private int highlighted = -1;
+    private List<Option> matches = new();
+    private int? shownValue;
+
+    private bool CanCreate => OnCreate.HasDelegate && text.Trim().Length > 0
+        && !Items.Any(i => string.Equals(i.Name, text.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnParametersSet()
+    {
+        // Show the selected name when the value changes from outside (initial load, form reset, quick add).
+        if (Value != shownValue || (Value != null && text.Length == 0))
+        {
+            shownValue = Value;
+            text = Items.FirstOrDefault(i => i.Id == Value)?.Name ?? "";
+        }
+        if (open) Filter();
+    }
+
+    private void Open()
+    {
+        open = true;
+        Filter(showAll: true);
+    }
+
+    private async Task Close()
+    {
+        open = false;
+        highlighted = -1;
+        // Leaving the box with text that is not an exact name puts the current selection back.
+        var exact = Items.FirstOrDefault(i => string.Equals(i.Name, text.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (exact != null)
+        {
+            await Select(exact);
+        }
+        else if (text.Trim().Length == 0)
+        {
+            await SetValue(null);
+        }
+        else
+        {
+            text = Items.FirstOrDefault(i => i.Id == Value)?.Name ?? "";
+        }
+    }
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        text = e.Value as string ?? "";
+        open = true;
+        Filter();
+    }
+
+    private void Filter(bool showAll = false)
+    {
+        var query = text.Trim();
+        var current = Items.FirstOrDefault(i => i.Id == Value)?.Name;
+        // On focus, show the whole list rather than only the current name.
+        var all = showAll || query.Length == 0 || query == current;
+        matches = Items
+            .Where(i => all || i.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => all || i.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxShown)
+            .ToList();
+        // While searching, highlight the best match, or "add new" when nothing matches, so Enter does the obvious thing.
+        highlighted = all ? -1 : matches.Count > 0 ? 0 : CanCreate ? 0 : -1;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        var count = matches.Count + (CanCreate ? 1 : 0);
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                if (!open) Open();
+                else if (count > 0) highlighted = (highlighted + 1) % count;
+                break;
+            case "ArrowUp":
+                if (open && count > 0) highlighted = highlighted <= 0 ? count - 1 : highlighted - 1;
+                break;
+            case "Enter" when open:
+                if (highlighted >= 0 && highlighted < matches.Count) await Select(matches[highlighted]);
+                else if (highlighted == matches.Count && CanCreate) await RequestCreate();
+                break;
+            case "Escape" when open:
+                open = false;
+                text = Items.FirstOrDefault(i => i.Id == Value)?.Name ?? "";
+                break;
+        }
+    }
+
+    private async Task Select(Option item)
+    {
+        text = item.Name;
+        open = false;
+        highlighted = -1;
+        await SetValue(item.Id);
+    }
+
+    private async Task SetValue(int? value)
+    {
+        if (value == Value) return;
+        shownValue = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task RequestCreate()
+    {
+        var name = text.Trim();
+        open = false;
+        await OnCreate.InvokeAsync(name);
+    }
+}
