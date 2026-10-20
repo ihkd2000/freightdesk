@@ -18,18 +18,22 @@
 {
     <div class="alert @(messageIsError ? "alert-danger" : "alert-success")" role="alert">
         @message
+        @if (savedId.HasValue)
+        {
+            <a class="ms-2" href="/shipments/@savedId">@(messageIsError ? "Open the existing shipment" : "View shipment")</a>
+        }
         @if (!messageIsError)
         {
-            <a class="ms-2" href="/shipments">View all shipments</a>
+            <a class="ms-2" href="/shipments">All shipments</a>
         }
     </div>
 }
 
-<EditForm Model="@model" OnValidSubmit="Save">
+<EditForm Model="@model" OnValidSubmit="Save" OnInvalidSubmit="ShowInvalid">
     <DataAnnotationsValidator />
-    <ValidationSummary />
+    <ShipmentRulesValidator @ref="rules" IsNew="true" />
 
-    <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" />
+    <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false" />
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary" disabled="@isSaving">@(isSaving ? "Saving..." : "Save shipment")</button>
@@ -39,6 +43,8 @@
 
 @code {
     private Shipment model = new();
+    private ShipmentRulesValidator? rules;
+    private int? savedId;
     private List<Client> clients = new();
     private List<Carrier> carriers = new();
     private List<Port> ports = new();
@@ -53,10 +59,18 @@
         ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
     }
 
+    private void ShowInvalid()
+    {
+        message = "Please fix the highlighted fields.";
+        messageIsError = true;
+        savedId = null;
+    }
+
     private async Task Save()
     {
         isSaving = true;
         message = null;
+        savedId = null;
 
         try
         {
@@ -68,11 +82,27 @@
                 return;
             }
 
+            model.ContainerNumber = ShipmentRules.NormalizeContainerNumber(model.ContainerNumber);
+            model.BookingNumber = model.BookingNumber.Trim();
+            model.JobReferenceNumber = model.JobReferenceNumber.Trim();
+
+            var duplicateId = await ShipmentRules.FindDuplicateAsync(DbContext, model);
+            if (duplicateId.HasValue)
+            {
+                rules?.AddError(nameof(Shipment.ContainerNumber),
+                    $"Container {model.ContainerNumber} is already registered on booking {model.BookingNumber}.");
+                message = "This shipment already exists.";
+                messageIsError = true;
+                savedId = duplicateId;
+                return;
+            }
+
             model.Owner = userId;
             DbContext.Shipments.Add(model);
             await DbContext.SaveChangesAsync();
 
             var saved = model;
+            savedId = saved.Id;
             model = new Shipment();
 
             var notified = await NotifyClientAsync(saved);
@@ -84,7 +114,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Could not save shipment.");
-            message = $"Could not save the shipment: {ex.Message}";
+            message = "Could not save the shipment. Please try again; if it keeps failing, check the application log.";
             messageIsError = true;
         }
         finally

@@ -1,0 +1,70 @@
+@implements IDisposable
+
+@* Adds ShipmentRules errors to the surrounding EditForm, next to the DataAnnotations ones. *@
+
+@code {
+    [CascadingParameter] private EditContext? CurrentEditContext { get; set; }
+
+    /// <summary>True on the create page: always checks the container number format.</summary>
+    [Parameter] public bool IsNew { get; set; }
+
+    /// <summary>On the edit page: the format is only checked once the number differs from this.</summary>
+    [Parameter] public string? OriginalContainerNumber { get; set; }
+
+    private EditContext? subscribed;
+    private ValidationMessageStore? store;
+
+    protected override void OnParametersSet()
+    {
+        if (CurrentEditContext == null)
+        {
+            throw new InvalidOperationException($"{nameof(ShipmentRulesValidator)} must be placed inside an EditForm.");
+        }
+
+        // The page swaps the model (and so the EditContext) after a save.
+        if (!ReferenceEquals(CurrentEditContext, subscribed))
+        {
+            Unsubscribe();
+            subscribed = CurrentEditContext;
+            store = new ValidationMessageStore(subscribed);
+            subscribed.OnValidationRequested += OnValidationRequested;
+            subscribed.OnFieldChanged += OnFieldChanged;
+        }
+    }
+
+    /// <summary>Shows an error that needs the database, such as a duplicate, after the form has validated.</summary>
+    public void AddError(string field, string message)
+    {
+        if (subscribed == null || store == null) return;
+        store.Add(subscribed.Field(field), message);
+        subscribed.NotifyValidationStateChanged();
+    }
+
+    private void OnValidationRequested(object? sender, ValidationRequestedEventArgs e) => Run();
+
+    private void OnFieldChanged(object? sender, FieldChangedEventArgs e) => Run();
+
+    private void Run()
+    {
+        if (subscribed?.Model is not Shipment shipment || store == null) return;
+
+        store.Clear();
+        var checkFormat = IsNew || ShipmentRules.NormalizeContainerNumber(shipment.ContainerNumber)
+            != ShipmentRules.NormalizeContainerNumber(OriginalContainerNumber);
+        foreach (var error in ShipmentRules.Validate(shipment, checkFormat))
+        {
+            store.Add(subscribed.Field(error.Field), error.Message);
+        }
+        subscribed.NotifyValidationStateChanged();
+    }
+
+    private void Unsubscribe()
+    {
+        if (subscribed == null) return;
+        subscribed.OnValidationRequested -= OnValidationRequested;
+        subscribed.OnFieldChanged -= OnFieldChanged;
+        store?.Clear();
+    }
+
+    public void Dispose() => Unsubscribe();
+}

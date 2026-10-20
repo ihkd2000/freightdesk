@@ -3,22 +3,22 @@
     <div class="row g-3">
         <div class="col-md-3">
             <label class="form-label" for="invoiceNo">Invoice no.</label>
-            <InputNumber id="invoiceNo" class="form-control" @bind-Value="Model.InvoiceNo" />
+            <InputNumber id="invoiceNo" class="form-control" min="1" @bind-Value="Model.InvoiceNo" />
             <ValidationMessage For="@(() => Model.InvoiceNo)" />
         </div>
         <div class="col-md-3">
-            <label class="form-label" for="jobRef">Job reference</label>
+            <label class="form-label required" for="jobRef">Job reference</label>
             <InputText id="jobRef" class="form-control" @bind-Value="Model.JobReferenceNumber" />
             <ValidationMessage For="@(() => Model.JobReferenceNumber)" />
         </div>
         <div class="col-md-3">
-            <label class="form-label" for="bookingNo">Booking number</label>
+            <label class="form-label required" for="bookingNo">Booking number</label>
             <InputText id="bookingNo" class="form-control" @bind-Value="Model.BookingNumber" />
             <ValidationMessage For="@(() => Model.BookingNumber)" />
         </div>
         <div class="col-md-3">
-            <label class="form-label" for="containerNo">Container number</label>
-            <InputText id="containerNo" class="form-control" @bind-Value="Model.ContainerNumber" />
+            <label class="form-label required" for="containerNo">Container number</label>
+            <InputText id="containerNo" class="form-control text-uppercase" placeholder="e.g. MSCU1234566" @bind-Value="Model.ContainerNumber" />
             <ValidationMessage For="@(() => Model.ContainerNumber)" />
         </div>
     </div>
@@ -28,7 +28,7 @@
     <div class="fd-card-title">Parties &amp; route</div>
     <div class="row g-3">
         <div class="col-md-4">
-            <label class="form-label" for="client">Client</label>
+            <label class="form-label required" for="client">Client</label>
             <InputSelect id="client" class="form-select" @bind-Value="Model.ClientId">
                 <option value="0">Select a client</option>
                 @foreach (var client in Clients)
@@ -39,7 +39,7 @@
             <ValidationMessage For="@(() => Model.ClientId)" />
         </div>
         <div class="col-md-4">
-            <label class="form-label" for="carrier">Carrier</label>
+            <label class="form-label required" for="carrier">Carrier</label>
             <InputSelect id="carrier" class="form-select" @bind-Value="Model.CarrierId">
                 <option value="">Select a carrier</option>
                 @foreach (var carrier in Carriers)
@@ -50,7 +50,7 @@
             <ValidationMessage For="@(() => Model.CarrierId)" />
         </div>
         <div class="col-md-4">
-            <label class="form-label" for="port">Destination port</label>
+            <label class="form-label required" for="port">Destination port</label>
             <InputSelect id="port" class="form-select" @bind-Value="Model.PortId">
                 <option value="0">Select a port</option>
                 @foreach (var port in Ports)
@@ -68,7 +68,8 @@
     <div class="row g-3">
         <div class="col-md-3">
             <label class="form-label" for="qty">Quantity</label>
-            <InputNumber id="qty" class="form-control" @bind-Value="Model.CargoQuantity" />
+            <InputNumber id="qty" class="form-control" min="0" step="any" @bind-Value="Model.CargoQuantity" />
+            <ValidationMessage For="@(() => Model.CargoQuantity)" />
         </div>
         <div class="col-md-9">
             <label class="form-label" for="cargoDesc">Description</label>
@@ -87,6 +88,7 @@
         <div class="col-md-3">
             <label class="form-label" for="cutoff">Cut-off date</label>
             <InputDate id="cutoff" class="form-control" @bind-Value="Model.CutOffDate" />
+            <ValidationMessage For="@(() => Model.CutOffDate)" />
         </div>
         <div class="col-md-3">
             <label class="form-label" for="sailing">Sailing</label>
@@ -95,29 +97,34 @@
         <div class="col-md-3">
             <label class="form-label" for="arrival">Arrival</label>
             <InputDate id="arrival" class="form-control" @bind-Value="Model.Arrival" />
+            <ValidationMessage For="@(() => Model.Arrival)" />
         </div>
     </div>
 </div>
 
 <div class="fd-card">
-    <div class="fd-card-title">Billing &amp; release</div>
+    <div class="fd-card-title">@(ShowLifecycle ? "Billing & release" : "Billing")</div>
     <div class="row g-3">
         <div class="col-md-3">
             <label class="form-label" for="price">Price</label>
-            <InputNumber id="price" class="form-control" @bind-Value="Model.Price" />
+            <InputNumber id="price" class="form-control" min="0" step="0.01" @bind-Value="Model.Price" />
+            <ValidationMessage For="@(() => Model.Price)" />
         </div>
-        <div class="col-md-3">
-            <label class="form-label" for="paidDate">Payment received</label>
-            <InputDate id="paidDate" class="form-control" @bind-Value="Model.PaymentReceivedDate" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label" for="paidCarrier">Paid to carrier</label>
-            <InputDate id="paidCarrier" class="form-control" @bind-Value="Model.PaidToCarrierDate" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label" for="released">Released</label>
-            <InputDate id="released" class="form-control" @bind-Value="Model.ReleaseDate" />
-        </div>
+        @if (ShowLifecycle)
+        {
+            <div class="col-md-3">
+                <label class="form-label" for="paidDate">Payment received</label>
+                <InputDate id="paidDate" class="form-control" @bind-Value="Model.PaymentReceivedDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="paidCarrier">Paid to carrier</label>
+                <InputDate id="paidCarrier" class="form-control" @bind-Value="Model.PaidToCarrierDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="released">Released</label>
+                <InputDate id="released" class="form-control" @bind-Value="Model.ReleaseDate" />
+            </div>
+        }
         <div class="col-12">
             <label class="form-label" for="notes">Notes</label>
             <InputTextArea id="notes" class="form-control" rows="3" @bind-Value="Model.Notes" />
@@ -130,4 +137,7 @@
     [Parameter] public IReadOnlyList<Client> Clients { get; set; } = Array.Empty<Client>();
     [Parameter] public IReadOnlyList<Carrier> Carriers { get; set; } = Array.Empty<Carrier>();
     [Parameter] public IReadOnlyList<Port> Ports { get; set; } = Array.Empty<Port>();
+
+    /// <summary>Payment, carrier-payment and release dates happen after registration, so the create page hides them.</summary>
+    [Parameter] public bool ShowLifecycle { get; set; } = true;
 }

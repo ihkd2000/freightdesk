@@ -23,9 +23,9 @@ else
         <div class="alert @(messageIsError ? "alert-danger" : "alert-success")" role="alert">@message</div>
     }
 
-    <EditForm Model="@model" OnValidSubmit="SaveChanges">
+    <EditForm Model="@model" OnValidSubmit="SaveChanges" OnInvalidSubmit="ShowInvalid">
         <DataAnnotationsValidator />
-        <ValidationSummary />
+        <ShipmentRulesValidator @ref="rules" OriginalContainerNumber="@originalContainer" />
 
         <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" />
 
@@ -41,6 +41,8 @@ else
 
     private Shipment? model;
     private DateTime? originalArrival;
+    private string? originalContainer;
+    private ShipmentRulesValidator? rules;
     private List<Client> clients = new();
     private List<Carrier> carriers = new();
     private List<Port> ports = new();
@@ -53,32 +55,58 @@ else
     {
         model = await DbContext.Shipments.FirstOrDefaultAsync(c => c.Id == Id && c.Deleted != 1);
         originalArrival = model?.Arrival;
+        originalContainer = model?.ContainerNumber;
         clients = await DbContext.Clients.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         carriers = await DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
         loaded = true;
     }
 
+    private void ShowInvalid()
+    {
+        message = "Please fix the highlighted fields.";
+        messageIsError = true;
+    }
+
     private async Task SaveChanges()
     {
+        if (model == null) return;
+
         isSaving = true;
+        message = null;
         try
         {
+            if (ShipmentRules.NormalizeContainerNumber(model.ContainerNumber)
+                != ShipmentRules.NormalizeContainerNumber(originalContainer))
+            {
+                model.ContainerNumber = ShipmentRules.NormalizeContainerNumber(model.ContainerNumber);
+            }
+
+            if (await ShipmentRules.FindDuplicateAsync(DbContext, model) is int duplicateId)
+            {
+                rules?.AddError(nameof(Shipment.ContainerNumber),
+                    $"Container {model.ContainerNumber} is already registered on booking {model.BookingNumber} (shipment #{duplicateId}).");
+                message = "Another shipment already has this container and booking number.";
+                messageIsError = true;
+                return;
+            }
+
             // A new arrival date restarts the payment-reminder schedule.
-            if (model != null && model.Arrival != originalArrival)
+            if (model.Arrival != originalArrival)
             {
                 model.PaymentRemindersSent = 0;
                 originalArrival = model.Arrival;
             }
 
             await DbContext.SaveChangesAsync();
+            originalContainer = model.ContainerNumber;
             message = "Changes saved.";
             messageIsError = false;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Could not update shipment {Id}.", Id);
-            message = $"Could not save the changes: {ex.Message}";
+            message = "Could not save the changes. Please try again; if it keeps failing, check the application log.";
             messageIsError = true;
         }
         finally

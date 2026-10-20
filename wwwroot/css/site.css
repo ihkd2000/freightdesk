@@ -54,6 +54,7 @@ a:hover { color: var(--fd-primary-dark); }
 .soon-pill { display: inline-block; margin-left: .35rem; padding: .05rem .45rem; border-radius: 6px; background: #fde8e6; color: var(--fd-danger); font-size: .7rem; font-weight: 700; }
 
 .form-label { font-weight: 600; font-size: .82rem; color: var(--fd-muted); margin-bottom: .25rem; }
+.form-label.required::after { content: " *"; color: var(--fd-danger); }
 .form-control, .form-select { border-radius: 8px; border-color: #cfdbe1; }
 .form-control:focus, .form-select:focus { border-color: var(--fd-primary); box-shadow: 0 0 0 .2rem rgba(15,118,110,.18); }
 .form-actions { display: flex; gap: .6rem; flex-wrap: wrap; padding-top: .25rem; }
