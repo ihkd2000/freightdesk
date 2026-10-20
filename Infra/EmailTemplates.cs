@@ -86,25 +86,34 @@ namespace FreightDesk.Infra
                 Wrap(brand, "Payment reminder", body.ToString(), now.Year));
         }
 
+        /// <param name="containerNumbers">
+        /// All containers registered together on this booking; <paramref name="c"/> supplies the shared details.
+        /// Defaults to just <paramref name="c"/>'s container.
+        /// </param>
         public static EmailContent ShipmentRegistered(BrandingOptions brand, string clientName, Shipment c,
-            string? bankAccount, DateTime now)
+            string? bankAccount, DateTime now, IReadOnlyList<string>? containerNumbers = null)
         {
+            var containers = containerNumbers is { Count: > 0 } ? containerNumbers : new[] { c.ContainerNumber ?? "N/A" };
+            var many = containers.Count > 1;
+
             var details = new List<(string, string)>
             {
                 ("Job reference", c.JobReferenceNumber ?? "N/A"),
                 ("Booking number", c.BookingNumber ?? "N/A"),
-                ("Container number", c.ContainerNumber ?? "N/A")
+                (many ? $"Containers ({containers.Count})" : "Container number", string.Join(", ", containers))
             };
             if (!string.IsNullOrWhiteSpace(bankAccount))
             {
                 details.Add(("Bank account", bankAccount));
             }
             details.Add(("Estimated arrival", c.Arrival?.ToString("yyyy-MM-dd") ?? "N/A"));
-            details.Add(("Total price", c.Price?.ToString("C") ?? "N/A"));
+            details.Add(("Total price", (c.Price * containers.Count)?.ToString("C") ?? "N/A"));
 
             var body = new StringBuilder();
             body.Append($"<p>Hello {E(clientName)},</p>");
-            body.Append("<p>Your shipment has been registered. Here are the details:</p>");
+            body.Append(many
+                ? "<p>Your shipments have been registered. Here are the details:</p>"
+                : "<p>Your shipment has been registered. Here are the details:</p>");
             body.Append(Details(details.ToArray()));
             if (!string.IsNullOrWhiteSpace(brand.TrackingUrl))
             {
@@ -112,12 +121,14 @@ namespace FreightDesk.Infra
             }
             body.Append("<p>If you have any questions, just reply to this email.</p>");
 
-            var text = $"Hello {clientName}, your shipment (container {c.ContainerNumber}, booking {c.BookingNumber}) has been registered with {brand.CompanyName}.";
+            var containerText = many ? $"containers {string.Join(", ", containers)}" : $"container {containers[0]}";
+            var text = $"Hello {clientName}, your shipment ({containerText}, booking {c.BookingNumber}) has been registered with {brand.CompanyName}.";
 
-            return new EmailContent(
-                $"Shipment registered: {c.ContainerNumber}",
-                text,
-                Wrap(brand, "Shipment registered", body.ToString(), now.Year));
+            var subject = many
+                ? $"Shipment registered: {containers.Count} containers on booking {c.BookingNumber}"
+                : $"Shipment registered: {containers[0]}";
+
+            return new EmailContent(subject, text, Wrap(brand, "Shipment registered", body.ToString(), now.Year));
         }
 
         private static string Details(params (string Label, string Value)[] rows)

@@ -36,7 +36,8 @@
 
     <div class="row g-4">
         <div class="col-lg-8">
-            <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false" />
+            <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false"
+                            MoreContainers="moreContainers" ContainersChanged="StateHasChanged" />
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" disabled="@isSaving">@SaveLabel</button>
@@ -44,7 +45,7 @@
             </div>
         </div>
         <div class="col-lg-4">
-            <ShipmentSummary Model="model" Client="SelectedClient" DuplicateId="duplicateId"
+            <ShipmentSummary Model="model" Client="SelectedClient" DuplicateId="duplicateId" ContainerNumbers="AllContainerNumbers"
                              @bind-NotifyClient="notifyClient"
                              Branding="Branding.Value" BankAccount="@Configuration["Billing:BankAccount"]"
                              ArrivalDaysBefore="arrivalDaysBefore" ReminderOffsets="reminderOffsets" />
@@ -57,6 +58,7 @@
     private EditContext editContext = default!;
     private bool notifyClient = true;
     private int? duplicateId;
+    private List<ContainerEntry> moreContainers = new();
     private int arrivalDaysBefore;
     private int[] reminderOffsets = Array.Empty<int>();
     // Blazor Server shares one DbContext per circuit; the live duplicate check and Save must not overlap.
@@ -71,6 +73,12 @@
     private bool messageIsError;
 
     private Client? SelectedClient => clients.FirstOrDefault(c => c.Id == model.ClientId);
+
+    private IReadOnlyList<string> AllContainerNumbers =>
+        new[] { model.ContainerNumber }.Concat(moreContainers.Select(c => c.Number))
+            .Select(ShipmentRules.NormalizeContainerNumber)
+            .Where(n => n.Length > 0)
+            .ToList();
 
     private bool WillNotify => notifyClient && !string.IsNullOrWhiteSpace(SelectedClient?.Email);
 
@@ -98,6 +106,7 @@
         editContext.OnFieldChanged += OnFieldChanged;
         notifyClient = true;
         duplicateId = null;
+        moreContainers = new List<ContainerEntry>();
     }
 
     private async void OnFieldChanged(object? sender, FieldChangedEventArgs e)
@@ -128,8 +137,23 @@
         }
     }
 
+    /// <summary>Drops empty rows, normalises the numbers and flags bad or repeated ones. True when all are fine.</summary>
+    private bool ValidateMoreContainers()
+    {
+        moreContainers.RemoveAll(c => string.IsNullOrWhiteSpace(c.Number));
+        var seen = new HashSet<string> { ShipmentRules.NormalizeContainerNumber(model.ContainerNumber) };
+        foreach (var entry in moreContainers)
+        {
+            entry.Number = ShipmentRules.NormalizeContainerNumber(entry.Number);
+            entry.Error = ShipmentRules.ContainerNumberError(entry.Number)
+                          ?? (seen.Add(entry.Number) ? null : "This container is already listed.");
+        }
+        return moreContainers.All(c => c.Error == null);
+    }
+
     private void ShowInvalid()
     {
+        ValidateMoreContainers();
         message = "Please fix the highlighted fields.";
         messageIsError = true;
         savedId = null;
@@ -156,6 +180,12 @@
             model.BookingNumber = model.BookingNumber.Trim();
             model.JobReferenceNumber = model.JobReferenceNumber.Trim();
 
+            if (!ValidateMoreContainers())
+            {
+                ShowInvalid();
+                return;
+            }
+
             duplicateId = await ShipmentRules.FindDuplicateAsync(DbContext, model);
             if (duplicateId.HasValue)
             {
@@ -168,29 +198,57 @@
             }
 
             model.Owner = userId;
-            DbContext.Shipments.Add(model);
+            var shipments = new List<Shipment> { model };
+            shipments.AddRange(moreContainers.Select(c => model.CopyForContainer(c.Number)));
+
+            var anyDuplicate = false;
+            foreach (var (entry, shipment) in moreContainers.Zip(shipments.Skip(1)))
+            {
+                if (await ShipmentRules.FindDuplicateAsync(DbContext, shipment) is int id)
+                {
+                    entry.Error = $"Already registered on booking {shipment.BookingNumber} (shipment #{id}).";
+                    anyDuplicate = true;
+                }
+            }
+            if (anyDuplicate)
+            {
+                message = "Some containers are already registered on this booking.";
+                messageIsError = true;
+                return;
+            }
+
+            // One SaveChanges, so either every container on the booking is saved or none is.
+            DbContext.Shipments.AddRange(shipments);
             await DbContext.SaveChangesAsync();
 
-            var saved = model;
             var notify = WillNotify;
-            savedId = saved.Id;
+            var containers = shipments.Select(s => s.ContainerNumber).ToList();
+            savedId = shipments.Count == 1 ? model.Id : null;
             ResetForm();
 
+            var what = containers.Count == 1
+                ? $"Shipment {containers[0]}"
+                : $"{containers.Count} shipments on booking {shipments[0].BookingNumber}";
             if (!notify)
             {
-                message = $"Shipment {saved.ContainerNumber} saved. The client was not emailed.";
+                message = $"{what} saved. The client was not emailed.";
             }
             else
             {
-                message = await NotifyClientAsync(saved)
-                    ? $"Shipment {saved.ContainerNumber} saved and the client was emailed."
-                    : $"Shipment {saved.ContainerNumber} saved, but the email could not be sent. You can resend it from the email log.";
+                message = await NotifyClientAsync(shipments[0], containers)
+                    ? $"{what} saved and the client was emailed."
+                    : $"{what} saved, but the email could not be sent. You can resend it from the email log.";
             }
             messageIsError = false;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Could not save shipment.");
+            // Forget the failed inserts so a retry does not add them twice.
+            foreach (var entry in DbContext.ChangeTracker.Entries<Shipment>().Where(e => e.State == EntityState.Added).ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
             message = "Could not save the shipment. Please try again; if it keeps failing, check the application log.";
             messageIsError = true;
         }
@@ -201,7 +259,7 @@
         }
     }
 
-    private async Task<bool> NotifyClientAsync(Shipment saved)
+    private async Task<bool> NotifyClientAsync(Shipment saved, IReadOnlyList<string> containers)
     {
         try
         {
@@ -212,7 +270,7 @@
             }
 
             var email = EmailTemplates.ShipmentRegistered(
-                Branding.Value, client.Name, saved, Configuration["Billing:BankAccount"], DateTime.Now);
+                Branding.Value, client.Name, saved, Configuration["Billing:BankAccount"], DateTime.Now, containers);
 
             var result = await Dispatcher.SendAsync(EmailKinds.ShipmentRegistered, client.Email,
                 email.Subject, email.Text, email.Html, saved.Id);

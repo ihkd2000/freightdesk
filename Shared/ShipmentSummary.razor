@@ -32,6 +32,18 @@
         }
     </div>
 
+    @if (ContainerNumbers.Count > 1)
+    {
+        <div class="summary-block">
+            <div class="summary-label">Containers</div>
+            <div>@ContainerNumbers.Count containers, saved as @ContainerNumbers.Count shipments</div>
+            @if (Model.Price.HasValue)
+            {
+                <div class="text-muted small">Total @((Model.Price * ContainerNumbers.Count)?.ToString("C"))</div>
+            }
+        </div>
+    }
+
     <div class="summary-block">
         <div class="form-check">
             <input class="form-check-input" type="checkbox" id="notifyClient" checked="@(NotifyClient && HasEmail)"
@@ -99,6 +111,7 @@
     [Parameter, EditorRequired] public Shipment Model { get; set; } = default!;
     [Parameter] public Client? Client { get; set; }
     [Parameter] public int? DuplicateId { get; set; }
+    [Parameter] public IReadOnlyList<string> ContainerNumbers { get; set; } = Array.Empty<string>();
     [Parameter] public bool NotifyClient { get; set; }
     [Parameter] public EventCallback<bool> NotifyClientChanged { get; set; }
     [Parameter, EditorRequired] public BrandingOptions Branding { get; set; } = default!;
@@ -111,7 +124,7 @@
     private bool HasEmail => !string.IsNullOrWhiteSpace(Client?.Email);
 
     private EmailContent Preview => EmailTemplates.ShipmentRegistered(
-        Branding, Client?.Name ?? "", PreviewShipment, BankAccount, DateTime.Now);
+        Branding, Client?.Name ?? "", PreviewShipment, BankAccount, DateTime.Now, ContainerNumbers);
 
     // Show the number the way it will be saved.
     private Shipment PreviewShipment => new()

@@ -73,6 +73,19 @@ namespace FreightDesk.Models
         public int Deleted { get; set; }
 
 
+        /// <summary>A new, unsaved shipment with the same booking details for another container on the booking.</summary>
+        public Shipment CopyForContainer(string containerNumber)
+        {
+            var copy = (Shipment)MemberwiseClone();
+            copy.Id = 0;
+            copy.ContainerNumber = containerNumber;
+            copy.Carrier = null!;
+            copy.Port = null!;
+            copy.Client = null!;
+            copy.PropertyChanged = null;
+            return copy;
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)

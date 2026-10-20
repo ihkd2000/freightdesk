@@ -16,11 +16,52 @@
             <InputText id="bookingNo" class="form-control" @bind-Value="Model.BookingNumber" />
             <ValidationMessage For="@(() => Model.BookingNumber)" />
         </div>
-        <div class="col-sm-6 col-xxl-3">
-            <label class="form-label required" for="containerNo">Container number</label>
-            <InputText id="containerNo" class="form-control text-uppercase" placeholder="e.g. MSCU1234566" @bind-Value="Model.ContainerNumber" />
-            <ValidationMessage For="@(() => Model.ContainerNumber)" />
-        </div>
+        @if (MoreContainers == null)
+        {
+            <div class="col-sm-6 col-xxl-3">
+                <label class="form-label required" for="containerNo">Container number</label>
+                <InputText id="containerNo" class="form-control text-uppercase" placeholder="e.g. MSCU1234566" @bind-Value="Model.ContainerNumber" />
+                <ValidationMessage For="@(() => Model.ContainerNumber)" />
+            </div>
+        }
+        else
+        {
+            <div class="col-12">
+                <label class="form-label required" for="containerNo">
+                    @(MoreContainers.Count == 0 ? "Container number" : $"Containers ({MoreContainers.Count + 1})")
+                </label>
+                <div class="row g-2">
+                    <div class="col-sm-6 col-xl-4">
+                        <InputText id="containerNo" class="form-control text-uppercase" placeholder="e.g. MSCU1234566" @bind-Value="Model.ContainerNumber" />
+                        <ValidationMessage For="@(() => Model.ContainerNumber)" />
+                    </div>
+                    @for (var i = 0; i < MoreContainers.Count; i++)
+                    {
+                        var entry = MoreContainers[i];
+                        var position = i + 2;
+                        <div class="col-sm-6 col-xl-4" @key="entry">
+                            <div class="input-group">
+                                <input class="form-control text-uppercase @(entry.Error == null ? "" : "invalid")" value="@entry.Number"
+                                       aria-label="Container @position" placeholder="Container @position"
+                                       @onchange="e => UpdateContainer(entry, e.Value as string)" />
+                                <button type="button" class="btn btn-outline-secondary" aria-label="Remove container @position"
+                                        @onclick="() => RemoveContainer(entry)">
+                                    <span class="oi oi-x" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            @if (entry.Error != null)
+                            {
+                                <div class="validation-message">@entry.Error</div>
+                            }
+                        </div>
+                    }
+                </div>
+                <button type="button" class="btn btn-link btn-sm px-0 mt-1" @onclick="AddContainer">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add another container
+                </button>
+                <div class="form-text">Each container is saved as its own shipment with the details below.</div>
+            </div>
+        }
     </div>
 </div>
 
@@ -106,7 +147,7 @@
     <div class="fd-card-title">@(ShowLifecycle ? "Billing & release" : "Billing")</div>
     <div class="row g-3">
         <div class="col-sm-6 col-xxl-3">
-            <label class="form-label" for="price">Price</label>
+            <label class="form-label" for="price">@(MoreContainers is { Count: > 0 } ? "Price per container" : "Price")</label>
             <InputNumber id="price" class="form-control" min="0" step="0.01" @bind-Value="Model.Price" />
             <ValidationMessage For="@(() => Model.Price)" />
         </div>
@@ -140,4 +181,27 @@
 
     /// <summary>Payment, carrier-payment and release dates happen after registration, so the create page hides them.</summary>
     [Parameter] public bool ShowLifecycle { get; set; } = true;
+
+    /// <summary>Extra containers on the same booking (create page only); null hides the option.</summary>
+    [Parameter] public List<ContainerEntry>? MoreContainers { get; set; }
+    [Parameter] public EventCallback ContainersChanged { get; set; }
+
+    private Task AddContainer()
+    {
+        MoreContainers!.Add(new ContainerEntry());
+        return ContainersChanged.InvokeAsync();
+    }
+
+    private Task RemoveContainer(ContainerEntry entry)
+    {
+        MoreContainers!.Remove(entry);
+        return ContainersChanged.InvokeAsync();
+    }
+
+    private Task UpdateContainer(ContainerEntry entry, string? value)
+    {
+        entry.Number = value ?? "";
+        entry.Error = null;
+        return ContainersChanged.InvokeAsync();
+    }
 }
