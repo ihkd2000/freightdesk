@@ -2,6 +2,8 @@
 
 Shipment tracking and billing for freight forwarders. Blazor Server on ASP.NET Core 9 with EF Core (SQLite) and Identity.
 
+Built for small freight-forwarding offices that track ocean containers in spreadsheets and email: one place to register shipments, see what is arriving, chase unpaid invoices and know what is ready to release.
+
 - **Dashboard**: active shipments, arrivals due soon, unpaid and released counts.
 - **Shipments**: register, search, filter by status, edit, soft-delete; clients are emailed on registration.
 - **Directory**: clients, carriers and ports.
@@ -12,6 +14,8 @@ Shipment tracking and billing for freight forwarders. Blazor Server on ASP.NET C
 - **Email log**: every email is recorded with its result; failed or lost emails can be sent again with one click.
 
 ## Run
+
+Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
 
 ```
 dotnet user-secrets set "Seed:AdminEmail" "you@example.com"
@@ -43,6 +47,10 @@ Roles: `Admin`, `Moderator`, `User`.
 dotnet test tests/FreightDesk.Tests
 ```
 
+## Roadmap
+
+Planned work is in [ROADMAP.md](ROADMAP.md).
+
 ## License
 
-Copyright (c) 2026 Ayman Anaam All rights reserved. See [LICENSE](LICENSE).
+[MIT](LICENSE) © 2026 Ayman Anaam
