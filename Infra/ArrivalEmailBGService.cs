@@ -22,7 +22,7 @@ namespace FreightDesk.Infra
             _serviceProvider = serviceProvider;
             _logger = logger;
             _brand = brand.Value;
-            _daysBefore = Math.Max(1, configuration.GetValue("ArrivalNotifications:DaysBefore", 10));
+            _daysBefore = EmailSchedule.ArrivalDaysBefore(configuration);
             _pollInterval = TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue("ArrivalNotifications:PollMinutes", 15)));
         }
 

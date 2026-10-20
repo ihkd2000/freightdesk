@@ -26,9 +26,7 @@ namespace FreightDesk.Infra
             _brand = brand.Value;
             _bankAccount = configuration["Billing:BankAccount"];
 
-            var configured = configuration.GetSection("PaymentReminders:DaysBefore").Get<int[]>();
-            _offsets = (configured is { Length: > 0 } ? configured : new[] { 5, 2 })
-                .Where(d => d >= 0).Distinct().OrderByDescending(d => d).ToArray();
+            _offsets = EmailSchedule.ReminderOffsets(configuration);
             _pollInterval = TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue("PaymentReminders:PollMinutes", 30)));
         }
 

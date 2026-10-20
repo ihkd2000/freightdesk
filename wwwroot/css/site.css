@@ -111,3 +111,18 @@ a:hover { color: var(--fd-primary-dark); }
 
 
 .validation-message { color: var(--fd-danger); font-size: .8rem; }
+
+/* New shipment summary panel */
+.shipment-summary { position: sticky; top: 1rem; }
+.shipment-summary .summary-block { padding: .75rem 0; border-bottom: 1px solid var(--fd-border); }
+.shipment-summary .summary-block:last-child { border-bottom: 0; padding-bottom: 0; }
+.shipment-summary .summary-label { color: var(--fd-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .25rem; }
+.summary-warning { background: #fde8e6; color: var(--fd-danger); border-radius: 8px; padding: .5rem .7rem; font-size: .85rem; margin: .35rem 0; }
+.summary-schedule { list-style: none; padding: 0; margin: 0; }
+.summary-schedule li { padding: .35rem 0; }
+.summary-date { display: inline-block; min-width: 6.5rem; font-weight: 600; }
+.fd-modal-backdrop { position: fixed; inset: 0; background: rgba(16,42,56,.45); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 1050; }
+.fd-modal { background: var(--fd-surface); border-radius: var(--fd-radius); box-shadow: var(--fd-shadow); width: min(680px, 100%); max-height: calc(100vh - 2rem); display: flex; flex-direction: column; padding: 1rem 1.2rem; gap: .75rem; }
+.fd-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.email-preview { width: 100%; height: 60vh; border: 1px solid var(--fd-border); border-radius: 8px; background: #fff; }
+@media (max-width: 991.98px) { .shipment-summary { position: static; } }

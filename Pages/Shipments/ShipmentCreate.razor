@@ -1,4 +1,5 @@
 @page "/shipments/new"
+@implements IDisposable
 @using System.Security.Claims
 @inject AppDbContext DbContext
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -29,20 +30,37 @@
     </div>
 }
 
-<EditForm Model="@model" OnValidSubmit="Save" OnInvalidSubmit="ShowInvalid">
+<EditForm EditContext="@editContext" OnValidSubmit="Save" OnInvalidSubmit="ShowInvalid">
     <DataAnnotationsValidator />
     <ShipmentRulesValidator @ref="rules" IsNew="true" />
 
-    <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false" />
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <ShipmentFields Model="model" Clients="clients" Carriers="carriers" Ports="ports" ShowLifecycle="false" />
 
-    <div class="form-actions">
-        <button type="submit" class="btn btn-primary" disabled="@isSaving">@(isSaving ? "Saving..." : "Save shipment")</button>
-        <a class="btn btn-outline-secondary" href="/shipments">Cancel</a>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@isSaving">@SaveLabel</button>
+                <a class="btn btn-outline-secondary" href="/shipments">Cancel</a>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <ShipmentSummary Model="model" Client="SelectedClient" DuplicateId="duplicateId"
+                             @bind-NotifyClient="notifyClient"
+                             Branding="Branding.Value" BankAccount="@Configuration["Billing:BankAccount"]"
+                             ArrivalDaysBefore="arrivalDaysBefore" ReminderOffsets="reminderOffsets" />
+        </div>
     </div>
 </EditForm>
 
 @code {
     private Shipment model = new();
+    private EditContext editContext = default!;
+    private bool notifyClient = true;
+    private int? duplicateId;
+    private int arrivalDaysBefore;
+    private int[] reminderOffsets = Array.Empty<int>();
+    // Blazor Server shares one DbContext per circuit; the live duplicate check and Save must not overlap.
+    private readonly SemaphoreSlim dbLock = new(1, 1);
     private ShipmentRulesValidator? rules;
     private int? savedId;
     private List<Client> clients = new();
@@ -52,11 +70,62 @@
     private string? message;
     private bool messageIsError;
 
+    private Client? SelectedClient => clients.FirstOrDefault(c => c.Id == model.ClientId);
+
+    private bool WillNotify => notifyClient && !string.IsNullOrWhiteSpace(SelectedClient?.Email);
+
+    private string SaveLabel => isSaving ? "Saving..." : WillNotify ? "Save and email client" : "Save shipment";
+
     protected override async Task OnInitializedAsync()
     {
+        arrivalDaysBefore = EmailSchedule.ArrivalDaysBefore(Configuration);
+        reminderOffsets = EmailSchedule.ReminderOffsets(Configuration);
+        ResetForm();
+
         clients = await DbContext.Clients.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         carriers = await DbContext.Carriers.AsNoTracking().OrderBy(s => s.Name).ToListAsync();
         ports = await DbContext.Ports.AsNoTracking().OrderBy(d => d.Name).ToListAsync();
+    }
+
+    private void ResetForm()
+    {
+        if (editContext != null)
+        {
+            editContext.OnFieldChanged -= OnFieldChanged;
+        }
+        model = new Shipment();
+        editContext = new EditContext(model);
+        editContext.OnFieldChanged += OnFieldChanged;
+        notifyClient = true;
+        duplicateId = null;
+    }
+
+    private async void OnFieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        if (e.FieldIdentifier.FieldName is not (nameof(Shipment.ContainerNumber) or nameof(Shipment.BookingNumber)))
+        {
+            StateHasChanged();
+            return;
+        }
+
+        // async void: an event handler cannot be awaited, so failures are caught here.
+        try
+        {
+            if (!await dbLock.WaitAsync(0)) return; // a save is running; it does its own check
+            try
+            {
+                duplicateId = await ShipmentRules.FindDuplicateAsync(DbContext, model);
+            }
+            finally
+            {
+                dbLock.Release();
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Live duplicate check failed.");
+        }
     }
 
     private void ShowInvalid()
@@ -71,6 +140,7 @@
         isSaving = true;
         message = null;
         savedId = null;
+        await dbLock.WaitAsync();
 
         try
         {
@@ -86,7 +156,7 @@
             model.BookingNumber = model.BookingNumber.Trim();
             model.JobReferenceNumber = model.JobReferenceNumber.Trim();
 
-            var duplicateId = await ShipmentRules.FindDuplicateAsync(DbContext, model);
+            duplicateId = await ShipmentRules.FindDuplicateAsync(DbContext, model);
             if (duplicateId.HasValue)
             {
                 rules?.AddError(nameof(Shipment.ContainerNumber),
@@ -102,13 +172,20 @@
             await DbContext.SaveChangesAsync();
 
             var saved = model;
+            var notify = WillNotify;
             savedId = saved.Id;
-            model = new Shipment();
+            ResetForm();
 
-            var notified = await NotifyClientAsync(saved);
-            message = notified
-                ? $"Shipment {saved.ContainerNumber} saved and the client was notified."
-                : $"Shipment {saved.ContainerNumber} saved. The client notification could not be sent.";
+            if (!notify)
+            {
+                message = $"Shipment {saved.ContainerNumber} saved. The client was not emailed.";
+            }
+            else
+            {
+                message = await NotifyClientAsync(saved)
+                    ? $"Shipment {saved.ContainerNumber} saved and the client was emailed."
+                    : $"Shipment {saved.ContainerNumber} saved, but the email could not be sent. You can resend it from the email log.";
+            }
             messageIsError = false;
         }
         catch (Exception ex)
@@ -119,6 +196,7 @@
         }
         finally
         {
+            dbLock.Release();
             isSaving = false;
         }
     }
@@ -145,5 +223,11 @@
             Logger.LogWarning(ex, "Could not send the registration email for {ContainerNumber}.", saved.ContainerNumber);
             return false;
         }
+    }
+
+    public void Dispose()
+    {
+        editContext.OnFieldChanged -= OnFieldChanged;
+        dbLock.Dispose();
     }
 }

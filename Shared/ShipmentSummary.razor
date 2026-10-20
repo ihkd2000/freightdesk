@@ -1,0 +1,131 @@
+@* Side panel on the New shipment page: who gets emailed, what the email says, and what follows automatically. *@
+
+<aside class="fd-card shipment-summary">
+    <div class="fd-card-title">Summary</div>
+
+    @if (DuplicateId.HasValue)
+    {
+        <div class="summary-warning" role="alert">
+            <span class="oi oi-warning" aria-hidden="true"></span>
+            This container is already registered on this booking.
+            <a href="/shipments/@DuplicateId">Open it</a>
+        </div>
+    }
+
+    <div class="summary-block">
+        <div class="summary-label">Client</div>
+        @if (Client == null)
+        {
+            <div class="text-muted">No client selected yet.</div>
+        }
+        else
+        {
+            <div class="fw-semibold">@Client.Name</div>
+            @if (HasEmail)
+            {
+                <div class="text-muted small">@Client.Email</div>
+            }
+            else
+            {
+                <div class="summary-warning">This client has no email address, so no emails can be sent.</div>
+            }
+        }
+    </div>
+
+    <div class="summary-block">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="notifyClient" checked="@(NotifyClient && HasEmail)"
+                   disabled="@(!HasEmail)" @onchange="OnNotifyChanged" />
+            <label class="form-check-label" for="notifyClient">Email the client when I save</label>
+        </div>
+        @if (HasEmail)
+        {
+            <button type="button" class="btn btn-link btn-sm px-0" @onclick="() => showPreview = true">
+                Preview the email
+            </button>
+        }
+    </div>
+
+    <div class="summary-block">
+        <div class="summary-label">Automatic emails</div>
+        @if (Model.Arrival == null)
+        {
+            <div class="text-muted small">Add an arrival date to schedule the arrival notice and payment reminders.</div>
+        }
+        else if (Plan.Count == 0)
+        {
+            <div class="text-muted small">The arrival date has passed, so no automatic emails will be sent.</div>
+        }
+        else
+        {
+            <ul class="summary-schedule">
+                @foreach (var email in Plan)
+                {
+                    <li>
+                        <span class="summary-date">@email.Date.ToString("ddd d MMM")</span>
+                        <span>@email.Kind</span>
+                        <span class="text-muted small d-block">@email.Note</span>
+                    </li>
+                }
+            </ul>
+            @if (!HasEmail)
+            {
+                <div class="text-muted small">These will be skipped until the client has an email address.</div>
+            }
+        }
+    </div>
+</aside>
+
+@if (showPreview && HasEmail)
+{
+    var preview = Preview;
+    <div class="fd-modal-backdrop" @onclick="() => showPreview = false">
+        <div class="fd-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle" @onclick:stopPropagation="true">
+            <div class="fd-modal-head">
+                <div>
+                    <div class="summary-label" id="previewTitle">Email preview</div>
+                    <div class="small"><strong>To:</strong> @Client!.Email</div>
+                    <div class="small"><strong>Subject:</strong> @preview.Subject</div>
+                </div>
+                <button type="button" class="btn-close" aria-label="Close preview" @onclick="() => showPreview = false"></button>
+            </div>
+            @* allow-same-origin lets the document render; scripts stay blocked because allow-scripts is not set. *@
+            <iframe class="email-preview" sandbox="allow-same-origin" srcdoc="@preview.Html" title="Email preview"></iframe>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public Shipment Model { get; set; } = default!;
+    [Parameter] public Client? Client { get; set; }
+    [Parameter] public int? DuplicateId { get; set; }
+    [Parameter] public bool NotifyClient { get; set; }
+    [Parameter] public EventCallback<bool> NotifyClientChanged { get; set; }
+    [Parameter, EditorRequired] public BrandingOptions Branding { get; set; } = default!;
+    [Parameter] public string? BankAccount { get; set; }
+    [Parameter] public int ArrivalDaysBefore { get; set; } = 10;
+    [Parameter] public IReadOnlyList<int> ReminderOffsets { get; set; } = Array.Empty<int>();
+
+    private bool showPreview;
+
+    private bool HasEmail => !string.IsNullOrWhiteSpace(Client?.Email);
+
+    private EmailContent Preview => EmailTemplates.ShipmentRegistered(
+        Branding, Client?.Name ?? "", PreviewShipment, BankAccount, DateTime.Now);
+
+    // Show the number the way it will be saved.
+    private Shipment PreviewShipment => new()
+    {
+        JobReferenceNumber = Model.JobReferenceNumber,
+        BookingNumber = Model.BookingNumber,
+        ContainerNumber = ShipmentRules.NormalizeContainerNumber(Model.ContainerNumber),
+        Arrival = Model.Arrival,
+        Price = Model.Price
+    };
+
+    private IReadOnlyList<PlannedEmail> Plan =>
+        EmailSchedule.Plan(Model.Arrival, DateTime.Today, ArrivalDaysBefore, ReminderOffsets);
+
+    private Task OnNotifyChanged(ChangeEventArgs e) =>
+        NotifyClientChanged.InvokeAsync(e.Value is true);
+}
