@@ -49,6 +49,7 @@ public sealed class ArrivalEmailTests : IDisposable
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
         db.Ports.Add(new Port { Id = 1, Name = "New York" });
+        db.Carriers.Add(new Carrier { Id = 1, Name = "Maersk" });
         db.SaveChanges();
     }
 
@@ -88,6 +89,7 @@ public sealed class ArrivalEmailTests : IDisposable
             BookingNumber = "BK-" + number,
             ContainerNumber = number,
             PortId = 1,
+            CarrierId = 1,
             ClientId = shipperId,
             Arrival = arrival,
             Deleted = deleted,

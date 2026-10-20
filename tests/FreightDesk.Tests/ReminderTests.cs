@@ -31,6 +31,7 @@ public sealed class PaymentReminderTests : IDisposable
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
         db.Ports.Add(new Port { Id = 1, Name = "New York" });
+        db.Carriers.Add(new Carrier { Id = 1, Name = "Maersk" });
         db.SaveChanges();
     }
 
@@ -66,6 +67,7 @@ public sealed class PaymentReminderTests : IDisposable
             BookingNumber = "BK-" + number,
             ContainerNumber = number,
             PortId = 1,
+            CarrierId = 1,
             ClientId = client.Id,
             Arrival = arrival,
             PaymentReceivedDate = paid,
