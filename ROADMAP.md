@@ -24,7 +24,8 @@ Planned work for FreightDesk, roughly in priority order. Estimates are rough.
 
 - [ ] Unit tests for `AttentionRules` and `ShipmentStatus`.
 - [ ] Tests for `EmailDispatcher` retry and email-log behaviour.
-- [ ] bUnit component tests for the shipment create/edit forms and validation.
+- [x] bUnit component tests for the New shipment page (save, email opt-out, multiple containers, duplicates, validation, quick add).
+- [ ] bUnit component tests for the Edit shipment page.
 - [ ] Integration test that boots the app against an in-memory SQLite database.
 
 ## Deployment and docs (~4 h)
