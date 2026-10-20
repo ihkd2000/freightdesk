@@ -54,3 +54,5 @@ Planned work is in [ROADMAP.md](ROADMAP.md).
 ## License
 
 [MIT](LICENSE) © 2026 Ayman Anaam
+
+Bootstrap and Open Iconic in `wwwroot` are third-party components under their own licenses.
