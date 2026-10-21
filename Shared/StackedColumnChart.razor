@@ -1,0 +1,112 @@
+@* Columns split into a settled part (paid / received) and an open part (unpaid / outstanding). Plain HTML, no JS. *@
+
+<section class="fd-card chart-card" aria-labelledby="@($"{Id}-title")">
+    <div class="fd-card-title" id="@($"{Id}-title")">@Title</div>
+    <p class="chart-subtitle">@Subtitle</p>
+
+    <div class="chart-legend" aria-hidden="true">
+        <span><span class="chart-swatch chart-settled"></span>@SettledName</span>
+        <span><span class="chart-swatch chart-open"></span>@OpenName</span>
+    </div>
+
+    @if (Columns.All(c => c.Total == 0))
+    {
+        <div class="empty-state chart-empty">@EmptyText</div>
+    }
+    else
+    {
+        var max = DashboardCharts.NiceMax(Columns.Max(c => c.Total));
+        var peak = Columns.MaxBy(c => c.Total)!;
+        <div class="col-chart">
+            <div class="col-chart-axis" aria-hidden="true">
+                <span style="bottom: 100%">@Compact(max)</span>
+                <span style="bottom: 50%">@Compact(max / 2)</span>
+                <span style="bottom: 0">0</span>
+            </div>
+            <div class="col-chart-plot">
+                <div class="col-grid" style="bottom: 100%"></div>
+                <div class="col-grid" style="bottom: 50%"></div>
+                <div class="col-grid col-baseline" style="bottom: 0"></div>
+                <div class="col-slots" role="list" aria-label="@Title">
+                    @foreach (var column in Columns)
+                    {
+                        var height = column.Total == 0 ? 0 : (double)(column.Total / max * 100);
+                        <div class="col-slot" role="listitem" tabindex="0"
+                             aria-label="@($"{column.LongLabel}: {SettledName.ToLower()} {Format(column.Settled)}, {OpenName.ToLower()} {Format(column.Open)}, total {Format(column.Total)}")">
+                            <div class="col-tip" aria-hidden="true">
+                                <div class="col-tip-title">@column.LongLabel</div>
+                                <div><span class="chart-swatch chart-settled"></span>@SettledName <strong>@Format(column.Settled)</strong></div>
+                                <div><span class="chart-swatch chart-open"></span>@OpenName <strong>@Format(column.Open)</strong></div>
+                                <div class="col-tip-total">Total <strong>@Format(column.Total)</strong></div>
+                            </div>
+                            <div class="col-stack" style="height: @(height.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%">
+                                @if (ReferenceEquals(column, peak))
+                                {
+                                    <span class="col-cap-label" aria-hidden="true">@Format(column.Total)</span>
+                                }
+                                @if (column.Open > 0)
+                                {
+                                    <div class="col-seg chart-open" style="flex-grow: @Weight(column.Open)"></div>
+                                }
+                                @if (column.Settled > 0)
+                                {
+                                    <div class="col-seg chart-settled" style="flex-grow: @Weight(column.Settled)"></div>
+                                }
+                            </div>
+                            <div class="col-label" aria-hidden="true">@column.Label</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <details class="chart-table">
+            <summary>Show as table</summary>
+            <table class="table table-sm fd-table">
+                <thead>
+                    <tr><th>@TableHeading</th><th class="text-end">@SettledName</th><th class="text-end">@OpenName</th><th class="text-end">Total</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var column in Columns)
+                    {
+                        <tr>
+                            <td>@column.LongLabel</td>
+                            <td class="text-end">@Format(column.Settled)</td>
+                            <td class="text-end">@Format(column.Open)</td>
+                            <td class="text-end">@Format(column.Total)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = default!;
+    [Parameter, EditorRequired] public string Title { get; set; } = default!;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public IReadOnlyList<StackedColumn> Columns { get; set; } = Array.Empty<StackedColumn>();
+    [Parameter] public string SettledName { get; set; } = "Paid";
+    [Parameter] public string OpenName { get; set; } = "Unpaid";
+    [Parameter] public string TableHeading { get; set; } = "Period";
+    [Parameter] public string EmptyText { get; set; } = "Nothing to show yet.";
+
+    /// <summary>True for money: values show as currency and the axis as $1.5K.</summary>
+    [Parameter] public bool IsCurrency { get; set; }
+
+    private string Format(decimal value) => IsCurrency ? value.ToString("C0") : value.ToString("0");
+
+    private string Compact(decimal value)
+    {
+        var symbol = IsCurrency ? System.Globalization.NumberFormatInfo.CurrentInfo.CurrencySymbol : "";
+        return value switch
+        {
+            >= 1_000_000 => $"{symbol}{value / 1_000_000:0.#}M",
+            >= 1_000 => $"{symbol}{value / 1_000:0.#}K",
+            _ => $"{symbol}{value:0.#}"
+        };
+    }
+
+    private static string Weight(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}

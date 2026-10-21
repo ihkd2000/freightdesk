@@ -40,6 +40,18 @@
     </div>
 </div>
 
+<div class="chart-grid">
+    <StackedColumnChart Id="arrivals-chart" Title="Arrivals per week"
+                        Subtitle="Active shipments arriving in the next 8 weeks, by payment status."
+                        Columns="arrivalsByWeek" SettledName="Paid" OpenName="Unpaid" TableHeading="Week"
+                        EmptyText="No arrivals scheduled in the next 8 weeks." />
+    <StackedColumnChart Id="billing-chart" Title="Billing per month"
+                        Subtitle="Shipment prices by invoice date over the last 6 months."
+                        Columns="billingByMonth" SettledName="Received" OpenName="Outstanding" TableHeading="Month"
+                        IsCurrency="true" EmptyText="No invoices in the last 6 months." />
+    <CarrierBars Carriers="byCarrier" />
+</div>
+
 <div class="fd-card">
     <div class="fd-card-title">Needs attention</div>
     @if (attention.Count == 0)
@@ -133,6 +145,9 @@
     private int windowDays = 10;
     private List<AttentionItem> attention = new();
     private List<Shipment> upcoming = new();
+    private IReadOnlyList<StackedColumn> arrivalsByWeek = Array.Empty<StackedColumn>();
+    private IReadOnlyList<StackedColumn> billingByMonth = Array.Empty<StackedColumn>();
+    private IReadOnlyList<CarrierShare> byCarrier = Array.Empty<CarrierShare>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -143,12 +158,13 @@
             .AsNoTracking()
             .Include(c => c.Client)
             .Include(c => c.Port)
+            .Include(c => c.Carrier)
             .Where(c => c.Deleted != 1)
             .ToListAsync();
 
         var open = all.Where(c => c.ReleaseDate == null).ToList();
 
-        total = all.Count;
+        total = open.Count;
         released = all.Count - open.Count;
         awaitingPayment = open.Count(c => c.PaymentReceivedDate == null);
         arrivingSoon = open.Count(c => c.Arrival.HasValue
@@ -166,6 +182,10 @@
             .OrderBy(c => c.Arrival)
             .Take(8)
             .ToList();
+
+        arrivalsByWeek = DashboardCharts.ArrivalsByWeek(all, today);
+        billingByMonth = DashboardCharts.BillingByMonth(all, today);
+        byCarrier = DashboardCharts.ByCarrier(all);
 
         var since = DateTime.UtcNow.AddDays(-7);
         failedEmails = await DbContext.EmailLogs.CountAsync(l => !l.Success && l.SentAtUtc >= since);

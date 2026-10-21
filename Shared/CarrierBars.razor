@@ -1,0 +1,33 @@
+@* Active shipments per carrier as horizontal bars, largest first. One series, so the title names it and there is no legend. *@
+
+<section class="fd-card chart-card" aria-labelledby="carrier-chart-title">
+    <div class="fd-card-title" id="carrier-chart-title">Active shipments by carrier</div>
+    <p class="chart-subtitle">Shipments not yet released, per shipping line.</p>
+
+    @if (Carriers.Count == 0)
+    {
+        <div class="empty-state chart-empty">No active shipments yet.</div>
+    }
+    else
+    {
+        var max = Carriers.Max(c => c.Count);
+        var total = Carriers.Sum(c => c.Count);
+        <ul class="bar-list">
+            @foreach (var carrier in Carriers)
+            {
+                var share = Math.Round(100.0 * carrier.Count / total);
+                <li title="@($"{carrier.Name}: {carrier.Count} of {total} active shipments ({share}%)")">
+                    <span class="bar-name">@carrier.Name</span>
+                    <span class="bar-track" aria-hidden="true">
+                        <span class="bar-fill chart-settled" style="width: @((100.0 * carrier.Count / max).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></span>
+                    </span>
+                    <span class="bar-value">@carrier.Count <span class="bar-share">@share%</span></span>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<CarrierShare> Carriers { get; set; } = Array.Empty<CarrierShare>();
+}

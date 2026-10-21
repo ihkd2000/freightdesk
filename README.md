@@ -4,7 +4,7 @@ Shipment tracking and billing for freight forwarders. Blazor Server on ASP.NET C
 
 Built for small freight-forwarding offices that track ocean containers in spreadsheets and email: one place to register shipments, see what is arriving, chase unpaid invoices and know what is ready to release.
 
-- **Dashboard**: active shipments, arrivals due soon, unpaid and released counts.
+- **Dashboard**: active shipments, arrivals due soon, unpaid and released counts, plus charts of arrivals per week (paid vs unpaid), billing per month (received vs outstanding) and active shipments per carrier.
 - **Shipments**: register, search, filter by status, edit, soft-delete.
 - **New shipment form**: several containers per booking, ISO 6346 container-number check (including the check digit), date and duplicate checks, searchable client/carrier/port pickers with add-on-the-spot, automatic invoice number, and a summary panel that previews the client's registration email (with an opt-out) and lists when the arrival notice and payment reminders will go out.
 - **Directory**: clients, carriers and ports.
