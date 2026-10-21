@@ -31,7 +31,7 @@ public sealed class PaymentReminderTests : IDisposable
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
         db.Ports.Add(new Port { Id = 1, Name = "New York" });
-        db.Carriers.Add(new Carrier { Id = 1, Name = "Maersk" });
+        db.Carriers.Add(new Carrier { Id = 1, Name = "Northwind Lines" });
         db.SaveChanges();
     }
 

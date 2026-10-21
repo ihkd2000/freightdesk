@@ -25,7 +25,7 @@ public sealed class DashboardPageTests : BunitContext
         using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
         db.Database.EnsureCreated();
         db.Clients.Add(new Client { Id = 1, Name = "ABC Shipping", Email = "abc@example.com" });
-        db.Carriers.AddRange(new Carrier { Id = 1, Name = "Maersk" }, new Carrier { Id = 2, Name = "MSC" });
+        db.Carriers.AddRange(new Carrier { Id = 1, Name = "Northwind Lines" }, new Carrier { Id = 2, Name = "Bluewave Shipping" });
         db.Ports.Add(new Port { Id = 1, Name = "New York" });
 
         var n = 0;
@@ -81,6 +81,6 @@ public sealed class DashboardPageTests : BunitContext
 
         Assert.Contains("Show as table", page.Markup);
         var carriers = page.FindAll(".bar-list li").Select(li => li.QuerySelector(".bar-name")!.TextContent).ToList();
-        Assert.Equal(new[] { "Maersk", "MSC" }, carriers);
+        Assert.Equal(new[] { "Northwind Lines", "Bluewave Shipping" }, carriers);
     }
 }

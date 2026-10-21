@@ -37,7 +37,7 @@ public sealed class ShipmentCreatePageTests : BunitContext
         db.Clients.AddRange(
             new Client { Id = 1, Name = "ABC Shipping", Email = "abc@example.com" },
             new Client { Id = 2, Name = "XYZ Shipping", Email = "xyz@example.com" });
-        db.Carriers.Add(new Carrier { Id = 1, Name = "Maersk" });
+        db.Carriers.Add(new Carrier { Id = 1, Name = "Northwind Lines" });
         db.Ports.Add(new Port { Id = 1, Name = "New York" });
         db.SaveChanges();
     }
@@ -71,7 +71,7 @@ public sealed class ShipmentCreatePageTests : BunitContext
         page.Find("#bookingNo").Change(booking);
         page.Find("#containerNo").Change(container);
         Pick(page, "client", "abc");
-        Pick(page, "carrier", "maer");
+        Pick(page, "carrier", "north");
         Pick(page, "port", "york");
         page.Find("#arrival").Change(DateTime.Today.AddDays(30).ToString("yyyy-MM-dd"));
         page.Find("#price").Change("1200");

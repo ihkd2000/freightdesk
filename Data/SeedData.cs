@@ -68,9 +68,9 @@ namespace FreightDesk.Data
             if (!context.Carriers.Any())
             {
                 context.Carriers.AddRange(
-                    new Carrier { Name = "Maersk" },
-                    new Carrier { Name = "CMA CGM" },
-                    new Carrier { Name = "Hapag-Lloyd" });
+                    new Carrier { Name = "Northwind Lines" },
+                    new Carrier { Name = "Harbor Star Line" },
+                    new Carrier { Name = "Polar Freight" });
             }
 
             if (!context.Clients.Any())

@@ -68,22 +68,22 @@ public class DashboardChartsTests
     {
         var shipments = new List<Shipment>();
         void Add(string carrier, int n) { for (var i = 0; i < n; i++) shipments.Add(S(carrier: carrier)); }
-        Add("Maersk", 5); Add("MSC", 4); Add("CMA CGM", 3); Add("Hapag-Lloyd", 2); Add("ONE", 1); Add("Zim", 1); Add("Cosco", 1);
-        shipments.Add(S(carrier: "Maersk", released: true));
+        Add("Northwind Lines", 5); Add("Bluewave Shipping", 4); Add("Harbor Star Line", 3); Add("Polar Freight", 2); Add("Orion Line", 1); Add("Zephyr Line", 1); Add("Atlas Marine", 1);
+        shipments.Add(S(carrier: "Northwind Lines", released: true));
         shipments.Add(S());
 
         var bars = DashboardCharts.ByCarrier(shipments, top: 6);
 
         Assert.Equal(
-            new[] { ("Maersk", 5), ("MSC", 4), ("CMA CGM", 3), ("Hapag-Lloyd", 2), ("Cosco", 1), ("Other (3 carriers)", 3) },
+            new[] { ("Northwind Lines", 5), ("Bluewave Shipping", 4), ("Harbor Star Line", 3), ("Polar Freight", 2), ("Atlas Marine", 1), ("Other (3 carriers)", 3) },
             bars.Select(b => (b.Name, b.Count)));
     }
 
     [Fact]
     public void Few_carriers_are_not_folded()
     {
-        var bars = DashboardCharts.ByCarrier(new[] { S(carrier: "Maersk"), S(carrier: "MSC"), S(carrier: "Maersk") });
-        Assert.Equal(new[] { ("Maersk", 2), ("MSC", 1) }, bars.Select(b => (b.Name, b.Count)));
+        var bars = DashboardCharts.ByCarrier(new[] { S(carrier: "Northwind Lines"), S(carrier: "Bluewave Shipping"), S(carrier: "Northwind Lines") });
+        Assert.Equal(new[] { ("Northwind Lines", 2), ("Bluewave Shipping", 1) }, bars.Select(b => (b.Name, b.Count)));
     }
 
     [Theory]

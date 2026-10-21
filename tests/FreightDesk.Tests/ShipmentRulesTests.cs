@@ -129,7 +129,7 @@ public sealed class DuplicateShipmentTests : IDisposable
         _db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
         _db.Database.EnsureCreated();
         _db.Ports.Add(new Port { Id = 1, Name = "New York" });
-        _db.Carriers.Add(new Carrier { Id = 1, Name = "Maersk" });
+        _db.Carriers.Add(new Carrier { Id = 1, Name = "Northwind Lines" });
         _db.Clients.Add(new Client { Id = 1, Name = "ABC Shipping", Email = "abc@example.com" });
         _db.SaveChanges();
     }
